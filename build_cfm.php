@@ -1,8 +1,13 @@
 <?php
 
-require('mod_microcore.php');
-require('mod_infuser.php');
-require('mod_rt_config.php');
+if ($argc != 2) {
+    echo "Invalid target file\n";
+    exit(1);
+}
+
+require('src/mod_microcore.php');
+require('src/mod_infuser.php');
+require('src/mod_rt_config.php');
 
 $args = new ArgsStore();
 $rtcfg = new RuntimeConfig(
@@ -30,4 +35,4 @@ function loadMods(ArgsStore $args, array $modulesList)/* array*/
 
 $mods = loadMods($args, $modules);
 
-Infuser::infuseToFile('test/cfm-canary.php', $mods);
+Infuser::infuseToFile($argv[1], $mods);
