@@ -25,6 +25,7 @@ Advanced file manager that fits in 1 PHP file.
  - **Full functionality without JavaScript**
  - **Modular architecture** (Easy to write plugins)
  - **Delta Updates**
+ - **Availability of Json API**
 
 # Requirements:
  - PHP >= 5.5.0
@@ -59,3 +60,4 @@ Open `http://localhost:8080/cfm-canary.php` in browser
  - Automatic updates
  - File content preview
  - Localisation system
+ - Tokens for anonymous access to files
