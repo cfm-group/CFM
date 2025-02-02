@@ -1,0 +1,5 @@
+<?php
+
+/**&
+  @runtime_config
+&*/
