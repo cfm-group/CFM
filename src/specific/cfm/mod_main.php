@@ -288,4 +288,4 @@ class Main implements UserModuleInterface, ConfigProviderInterface
 }
 
 ModIndex::addModule(Main::class);
-RuntimeConfig::defaultAdd(Main::class);
+RuntimeConfig::addDefault(Main::class);

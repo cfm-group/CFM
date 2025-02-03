@@ -28,11 +28,18 @@ class RuntimeConfig implements MiddlewareInterface
         $args->callAdd('cfgVSet', [$this, 'set']);
         $args->callAdd('cfgDump', [$this, 'dump']);
         $args->callAdd(
-            'cfgFullGet',
+            'cfgIGet',
             function () {
                 return $this;
             }
         );
+        $args->callAdd(
+            'pathCurrent',
+            function () {
+                return $_SERVER['SCRIPT_FILENAME'];
+            }
+        );
+        $this->args = $args;
 
         if (is_null($config))
             $config = static::$DEFAULT_RT_CONFIG;
@@ -57,7 +64,7 @@ class RuntimeConfig implements MiddlewareInterface
         static::$DEFAULT_RT_CONFIG = $config;
     }
 
-    public static function defaultAdd(/*string*/ $cls)/*: bool*/
+    public static function addDefault(/*string*/ $cls)/*: bool*/
     {
         if (!is_subclass_of($cls, ConfigProviderInterface::class, true))
             return false;
@@ -129,6 +136,33 @@ class RuntimeConfig implements MiddlewareInterface
     {
         return $this->runtimeConfig;
     }
+
+    public function dumpToPart(/*string*/ $file)/*: array*/
+    {
+        if (!is_writable($file))
+            return [
+                'status' => -1,
+                'msg' => 'Settings can\'t be saved. Current file is Read-Only',
+            ];
+
+        $mods = Infuser::defuse($this->args, $file);
+        if (!array_key_exists('rt_config', $mods))
+            return [
+                'status' => -2,
+                'msg' => 'Current file doesn\'t specify Runtime Config section',
+            ];
+
+        if (!Infuser::infuseToFile($file, $mods))
+            return [
+                'status' => -3,
+                'msg' => 'Unable to remove infuse or write file'
+            ];
+
+        if (extension_loaded('Zend OPcache'))
+            opcache_invalidate($file, true);
+
+        return ['status' => 0];
+    }
 }
 
 class RuntimeConfigFuser implements BasicFuserInterface
@@ -145,7 +179,7 @@ class RuntimeConfigFuser implements BasicFuserInterface
 
     public function isSustainable()/*: bool*/
     {
-        return $this->args->isCallAvailable('cfgFullGet');
+        return $this->args->isCallAvailable('cfgIGet');
     }
 
     public function isRequired()/*: bool*/

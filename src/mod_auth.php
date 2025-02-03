@@ -21,25 +21,43 @@ class CoreAuthenticationModule implements
     const MOD_PARENT = null;
 
     public static $FORM_FIELDS = [
-        'ca_login' => [
+        'ca_username' => [
             't_str',
             'c_not_empty' => [],
+            'c_limit' => [
+                'mode' => 'len',
+                'minq' => 4,
+                'maxq' => 12,
+            ],
             'o_field_schema' => [
-                'placeholder' => 'login'
+                'type' => 'text',
+                'placeholder' => 'username',
+                'attrs' => [
+                    'minlength' => 4,
+                    'maxlength' => 12,
+                ],
             ],
         ],
         'ca_password' => [
             't_str',
             'c_not_empty' => [],
+            'c_limit' => [
+                'mode' => 'len',
+                'minq' => 8,
+                'maxq' => 64,
+            ],
             'o_field_schema' => [
                 'type' => 'password',
                 'placeholder' => 'password',
+                'attrs' => [
+                    'minlength' => 8,
+                    'maxlength' => 64,
+                ],
             ],
-            'o_prevent_export' => ['preserve', 'display'],
+            'o_prevent_export' => ['display', 'preserve'],
         ],
     ];
     public static $HASH_ALGO = 'sha256';
-    public static $SECRET = 'zc59FaCRgqkvLX8KkfOrfo0iwXGCMJro';
     public static $C_EPOCH_DT = 3600; // Current epoch
     public static $P_EPOCH_DT = 604800; // Persistant epoch
     public static $USER_TEMPLATE = [
@@ -52,13 +70,14 @@ class CoreAuthenticationModule implements
             || !array_key_exists('key_nonce', $_COOKIE)
         ) {
             $args->getStack()->resetFromUUID(static::MOD_UUID);
-
             return false;
         }
 
+        $secret = $args->cfgVGet(static::class, 'secret');
         $username = $_COOKIE['current_user'];
         $currentAuthorized = false;
         $currentKey = static::createCurrentKey(
+            $secret,
             $username,
             $_COOKIE['key_nonce']
         );
@@ -70,6 +89,7 @@ class CoreAuthenticationModule implements
 
         $persistantAuthorized = false;
         $persistantKey = static::createPersistantKey(
+            $secret,
             $username,
             $_COOKIE['key_nonce']
         );
@@ -81,7 +101,6 @@ class CoreAuthenticationModule implements
 
         if (!($currentAuthorized || $persistantAuthorized)) {
             $args->getStack()->resetFromUUID(static::MOD_UUID);
-
             return false;
         }
 
@@ -118,6 +137,7 @@ class CoreAuthenticationModule implements
     }
 
     public static function createKey(
+        /*string*/ $secret,
         /*string*/ $username,
         /*string*/ $nonce,
         /*int*/ $epochTime
@@ -125,49 +145,63 @@ class CoreAuthenticationModule implements
         return hash_hmac(
             static::$HASH_ALGO,
             $username . '_' . $nonce,
-            static::$SECRET . '_' . floor(time() / $epochTime)
+            $secret . '_' . floor(time() / $epochTime)
         );
     }
 
     public static function createCurrentKey(
+        /*string*/ $secret,
         /*string*/ $username,
         /*string*/ $nonce
     )/*: string*/ {
-        return static::createKey($username, $nonce, static::$C_EPOCH_DT);
+        return static::createKey(
+            $secret,
+            $username,
+            $nonce,
+            static::$C_EPOCH_DT
+        );
     }
 
     public static function createPersistantKey(
+        /*string*/ $secret,
         /*string*/ $username,
         /*string*/ $nonce
     )/*: string*/ {
-        return static::createKey($username, $nonce, static::$P_EPOCH_DT);
+        return static::createKey(
+            $secret,
+            $username,
+            $nonce,
+            static::$P_EPOCH_DT
+        );
     }
 
     public static function process(
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        $login = static::valueGet($args, 'ca_login');
+        $username = static::valueGet($args, 'ca_username');
         $password = static::valueGet($args, 'ca_password');
-
-        if (!$login || !$password)
-            return;
+        if (!$username && !$password)
+            return ['status' => 1];
+        if (!$username || !$password)
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
 
         $users = $args->cfgVGet(static::class, 'users', []);
-        if (!array_key_exists($login, $users))
-            return ['status' => -1, 'msg' => 'Invalid login/password'];
+        if (!array_key_exists($username, $users))
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
 
-        $current = $users[$login];
+        $current = $users[$username];
         if (!password_verify($password, $current['pwd_hash']))
-            return ['status' => -1, 'msg' => 'Invalid login/password'];
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
 
         $nonce = dechex(mt_rand(0, PHP_INT_MAX));
-        $currentKey = static::createCurrentKey($login, $nonce);
-        $persistantKey = static::createPersistantKey($login, $nonce);
+        $secret = $args->cfgVGet(static::class, 'secret');
+        $currentKey = static::createCurrentKey($secret, $username, $nonce);
+        $persistantKey = static::createPersistantKey($secret, $username, $nonce);
 
         return [
             'status' => 0,
-            'login' => $login,
+            'username' => $username,
             'key_nonce' => $nonce,
             'current_key' => $currentKey,
             'persistant_key' => $persistantKey,
@@ -178,7 +212,7 @@ class CoreAuthenticationModule implements
     {
         return
             '<border class="stack">'
-                . static::fieldGet($args, 'ca_login')
+                . static::fieldGet($args, 'ca_username')
                 . static::fieldGet($args, 'ca_password')
                 . '<input type="submit" value="Log in">'
             . '</border>';
@@ -191,14 +225,18 @@ class CoreAuthenticationModule implements
     )/*: ?string*/ {
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args);
+        if ($curr_args['status'] === 1)
+            return;
 
         $pTime = time() + static::$P_EPOCH_DT;
         $cTime = time() + static::$C_EPOCH_DT;
-        setcookie('current_user', $curr_args['login'], $pTime, '/');
+        setcookie('current_user', $curr_args['username'], $pTime, '/');
         setcookie('key_nonce', $curr_args['key_nonce'], $pTime, '/');
         setcookie('current_key', $curr_args['current_key'], $cTime, '/');
         setcookie('persistant_key', $curr_args['persistant_key'], $pTime, '/');
-        header('Refresh: 0');
+        
+        http_response_code(303);
+        header('Location: ');
 
         return '<border>Successfull authorization. Reload the page</border>';
     }
@@ -257,12 +295,9 @@ class CoreAuthenticationModule implements
     public static function configGet()/*: array*/
     {
         return [
+            'secret' => null,
             'current_user' => null,
-            'users' => [
-                'admin' => [
-                    'pwd_hash' => '$2y$10$bZYpKrvScznAVgjTISqxTedA/w9cy1iX2NMVPgAWHsTfZFAhrT0s2',
-                ],
-            ],
+            'users' => [],
         ];
     }
 }
@@ -331,12 +366,37 @@ class CoreLogoutModule implements
         foreach ($curr_args['keys'] as $key) {
             setcookie($key, '', 0, '/');
         }
-        header('Refresh: 0');
+
+        http_response_code(303);
+        header('Location: ');
 
         return '<border>Successfull logout. Reload the page</border>';
     }
 }
 
+class SetupSessionSecretModule implements BasicModuleInterface
+{
+    const MOD_UUID = '7ae13f6b-7e94-4697-b31d-9039a5772831';
+    const MOD_NAME = 'Setup Session Secret';
+    const MOD_PARENT = SetupGroup::MOD_UUID;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        $secret = '';
+        for ($i = 0; $i < 4; $i++)
+            $secret .= dechex(mt_rand());
+
+        $secret = hash('sha256', $secret);
+
+        $args->cfgVSet(CoreAuthenticationModule::class, 'secret', $secret, true);
+
+        return ['status' => 0];
+    }
+}
+
 ModIndex::addModule(CoreAuthenticationModule::class);
 ModIndex::addModule(CoreLogoutModule::class, false, [Main::MOD_UUID]);
-RuntimeConfig::defaultAdd(CoreAuthenticationModule::class);
+ModIndex::addModule(SetupSessionSecretModule::class);
+RuntimeConfig::addDefault(CoreAuthenticationModule::class);

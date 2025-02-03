@@ -44,13 +44,13 @@ class SetListUserModule implements UserModuleInterface
     }
 }
 
-class SetAddUserModule implements UserModuleInterface
+class SetupFirstUserModule implements UserModuleInterface
 {
     use FormTools;
 
-    const MOD_UUID = 'c4cee578-fdde-43ed-aa39-d3707619f3d9';
-    const MOD_NAME = 'Add new user';
-    const MOD_PARENT = UserSettingsGroup::MOD_UUID;
+    const MOD_UUID = 'a9d79596-45ba-4773-9b1f-c1b7ede28018';
+    const MOD_NAME = 'Create first user';
+    const MOD_PARENT = SetupGroup::MOD_UUID;
 
     public static $FORM_FIELDS = [
         'new_username' => [
@@ -63,7 +63,11 @@ class SetAddUserModule implements UserModuleInterface
             ],
             'o_field_schema' => [
                 'type' => 'text',
-                'placeholder' => 'login',
+                'placeholder' => 'username',
+                'attrs' => [
+                    'minlength' => 4,
+                    'maxlength' => 12,
+                ],
             ],
         ],
         'new_password' => [
@@ -77,6 +81,10 @@ class SetAddUserModule implements UserModuleInterface
             'o_field_schema' => [
                 'type' => 'password',
                 'placeholder' => 'password',
+                'attrs' => [
+                    'minlength' => 8,
+                    'maxlength' => 64,
+                ],
             ],
             'o_prevent_export' => ['display', 'preserve'],
         ],
@@ -86,21 +94,20 @@ class SetAddUserModule implements UserModuleInterface
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        if ($prnt_args['status'] < 0)
-            return $prnt_args;
-
         $username = static::valueGet($args, 'new_username');
         $password = static::valueGet($args, 'new_password');
+        if (!$username && !$password)
+            return ['status' => 1];
         if (!$username || !$password)
-            return ['status' => -1, 'msg' => 'Invalid username or password'];
+            return [
+                'status' => -1,
+                'msg' => 'Username or password does not meet the requirements'
+            ];
 
         $cls = SettingsModule::$AUTH_CLS;
         $result = $cls::addUser($args, $username, $password);
         if ($result['status'] < 0)
             return ['status' => -2, 'msg' => $result['msg']];
-
-        if (!Infuser::infuseToFile($prnt_args['path'], $prnt_args['mods']))
-            return ['status' => -3, 'msg' => 'Unable to add new user'];
 
         return ['status' => 0];
     }
@@ -118,8 +125,42 @@ class SetAddUserModule implements UserModuleInterface
         array $curr_args,
         array $prnt_args = []
     )/*: ?string*/ {
+    }
+}
+
+class SetAddUserModule extends SetupFirstUserModule implements UserModuleInterface
+{
+    const MOD_UUID = 'c4cee578-fdde-43ed-aa39-d3707619f3d9';
+    const MOD_NAME = 'Add new user';
+    const MOD_PARENT = UserSettingsGroup::MOD_UUID;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        if ($prnt_args['status'] < 0)
+            return $prnt_args;
+
+        $result = parent::process($args, $prnt_args);
+        if ($result['status'] !== 0)
+            return $result;
+
+        $result = $args->cfgIGet()->dumpToPart($prnt_args['path']);
+        if ($result['status'] < 0)
+            return ['status' => -3, 'msg' => 'Unable to add new user'];
+
+        return ['status' => 0];
+    }
+
+    public static function display(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args);
+        if ($curr_args['status'] === 1)
+            return;
 
         return 'New user successfully created';
     }
@@ -144,7 +185,11 @@ class SetRemoveUserModule implements UserModuleInterface
             ],
             'o_field_schema' => [
                 'type' => 'text',
-                'placeholder' => 'login',
+                'placeholder' => 'username',
+                'attrs' => [
+                    'minlength' => 4,
+                    'maxlength' => 12,
+                ],
             ],
         ],
     ];
@@ -168,8 +213,9 @@ class SetRemoveUserModule implements UserModuleInterface
         if ($result['status'] < 0)
             return ['status' => -3, 'msg' => $result['msg']];
 
-        if (!Infuser::infuseToFile($prnt_args['path'], $prnt_args['mods']))
-            return ['status' => -4, 'msg' => 'Unable to remove user'];
+        $result = $args->cfgIGet()->dumpToPart($prnt_args['path']);
+        if ($result['status'] < 0)
+            return ['status' => -3, 'msg' => 'Unable to add new user'];
 
         return ['status' => 0];
     }
@@ -212,25 +258,9 @@ class SettingsModule extends PlainGroupModule implements UserModuleInterface
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        if (!is_writable(__FILE__))
-            return [
-                'status' => -1,
-                'msg' => 'Settings can\'t be saved. Current file is Read-Only',
-            ];
-
-        $file = $_SERVER['SCRIPT_FILENAME'];
-        $mods = Infuser::defuse($args, $file);
-
-        if (!array_key_exists('rt_config', $mods))
-            return [
-                'status' => -2,
-                'msg' => 'Current file doesn\'t specify Runtime Config section',
-            ];
-
         return [
             'status' => 0,
-            'path' => $file,
-            'mods' => $mods,
+            'path' => $args->pathCurrent(),
         ];
     }
 }
@@ -240,3 +270,4 @@ ModIndex::addModule(UserSettingsGroup::class);
 ModIndex::addModule(SetListUserModule::class);
 ModIndex::addModule(SetAddUserModule::class);
 ModIndex::addModule(SetRemoveUserModule::class);
+ModIndex::addModule(SetupFirstUserModule::class);

@@ -139,7 +139,7 @@ class TreeCreateDirectoryModule implements UserModuleInterface
         if (is_file($target))
             return ['status' => -6, 'msg' => 'File with this name already exists'];
         if (file_exists($target))
-            return ['status' => 1, 'Folder already exists'];
+            return ['status' => 10, 'msg' => 'Folder already exists'];
         if (!is_writable($path))
             return ['status' => -7, 'msg' => 'Parent directory isn\'t writable'];
         if (!mkdir($target))

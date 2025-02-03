@@ -6,6 +6,7 @@ return [
     'src/mod_core.php' => [],
     'src/mod_infuser.php' => [],
     'src/mod_rt_config.php' => [],
+    'src/mod_setup.php' => [],
     'src/mod_version.php' => [],
     'src/specific/cfm/mod_file_core.php' => [],
     'src/specific/cfm/mod_fileview.php' => [],

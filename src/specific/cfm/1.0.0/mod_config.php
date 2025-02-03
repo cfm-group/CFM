@@ -25,7 +25,6 @@ define(
 ini_set('display_errors', 0);
 
 MwChains::$GLOBAL_CHAIN = [
-    [HeadersMw::class, []],
     [MwChains::class, [
         'chain' => [
             [RuntimeConfig::class, [
@@ -34,6 +33,7 @@ MwChains::$GLOBAL_CHAIN = [
                     'show_cred' => false,
                 ],
             ]],
+            [SetupModule::class, []],
             [CoreAuthenticationModule::class, []],
             [RuntimeConfig::class, [
                 Main::class => [

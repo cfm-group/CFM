@@ -803,7 +803,6 @@ class ModStack implements Iterator
 
         if (!$this->runable) {
             $this->runable_reason = 'Invalid call';
-
             return;
         }
 
@@ -817,7 +816,7 @@ class ModStack implements Iterator
         }
     }
 
-    protected function runSetup()/*: bool*/
+    protected function restore()/*: bool*/
     {
         $this->rewind();
 
@@ -828,11 +827,12 @@ class ModStack implements Iterator
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        if (!$this->runSetup())
+        if (!$this->restore())
             return;
 
         foreach ($this as $cls) {
             $curr_args = $cls::process($args, $prnt_args);
+            assert(!is_array($curr_args), 'Invalid process call result');
 
             $this->procStore[$this->currentUUID()] = [$curr_args, $prnt_args];
             $prnt_args = $curr_args;
@@ -844,7 +844,7 @@ class ModStack implements Iterator
     public function reProcess(
         ArgsStore $args,
         /*string*/ $uuid,
-    )/*: array*/ {
+    )/*: ?array*/ {
         if (!array_key_exists($uuid, $this->procStore))
             return;
 
@@ -859,7 +859,7 @@ class ModStack implements Iterator
 
     public function form(ArgsStore $args)/*: string*/
     {
-        if (!$this->runSetup())
+        if (!$this->restore())
             return;
         if ($this->currentUUID() == $this->getRLM())
             return 'RLM execution is forbidden';
@@ -901,7 +901,7 @@ class ModStack implements Iterator
         array $curr_args,
         array $prnt_args = []
     )/*: ?string*/ {
-        if (!$this->runSetup())
+        if (!$this->restore())
             return;
 
         return $this->nextDisplay($args, $curr_args, $prnt_args);
@@ -914,7 +914,7 @@ class ModStack implements Iterator
         array $curr_args,
         array $prnt_args = []
     )/*: mixed*/ {
-        if (!$this->runSetup())
+        if (!$this->restore())
             return;
 
         $cls = $this->getTarget();
@@ -1526,9 +1526,10 @@ abstract class GroupModule implements UserModuleInterface
     public static function moduleIter()/*: Generator*/
     {
         foreach (ModIndex::getParents(static::MOD_UUID) as $uuid => $cls) {
+            if (!is_subclass_of($cls, UserModuleInterface::class, true))
+                continue;
             if (
-                !is_subclass_of($cls, UserModuleInterface::class, true)
-                && is_subclass_of($cls, EnvCheckInterface::class, true)
+                is_subclass_of($cls, EnvCheckInterface::class, true)
                 && !$cls::checkEnv()[0]
             )
                 continue;
