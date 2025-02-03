@@ -17,7 +17,7 @@ Advanced file manager that fits in 1 PHP file.
  # Key Features:
  - **Free Licence** (AGPLv3)
  - **No dependencies** (Only built-in PHP functions)
- - **Full functionality without JavaScript**
+ - **Most of the functionality works without JavaScript**
  - **Modular architecture** (Easy to write plugins)
  - **Delta Updates**
  - **Availability of Json API**
