@@ -14,13 +14,6 @@ Advanced file manager that fits in 1 PHP file.
  - **Mobile adaptability** - Access your files on the go.
  - **Partial download support** - You can download a file if your download is interrupted.
 
-# Ключевые особенности:
- - **Свободная лицензия** (AGPLv3)
- - **Никаких зависимостей** (Только встроенные в PHP функции)
- - **Полная функциональность без JavaScript**
- - **Модульная архитектура** (Простота написания плагинов)
- - **Возможность дельта-обновлений**
-
  # Key Features:
  - **Free Licence** (AGPLv3)
  - **No dependencies** (Only built-in PHP functions)
