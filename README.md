@@ -3,6 +3,8 @@
 
 Advanced file manager that fits in 1 PHP file.
 
+*a.k.a. Server file manager*
+
 [Ru](README.ru.md) | [En](README.md)
 
 [Main repository](https://gitflic.ru/project/consensus/cfm)

@@ -3,6 +3,8 @@
 
 Продвинутый файловый менеджер, умещающийся в 1 PHP-файле.
 
+*a.k.a. Файловый менеджер для сервера*
+
 [Ru](README.ru.md) | [En](README.md)
 
 [Основной репозиторий](https://gitflic.ru/project/consensus/cfm)
