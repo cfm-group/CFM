@@ -89,8 +89,11 @@ class RuntimeConfig implements MiddlewareInterface
             && array_key_exists($key, $this->currentConfig[$cls]);
     }
 
-    public function get(/*string*/ $cls, /*string*/ $key, /*mixed*/ $default = null)/*: mixed*/
-    {
+    public function get(
+        /*string*/ $cls,
+        /*string*/ $key,
+        /*mixed*/ $default = null
+    )/*: mixed*/ {
         if (!static::defaultExists($cls, $key))
             return $default;
         if ($this->currentExists($cls, $key))

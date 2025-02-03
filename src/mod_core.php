@@ -1217,16 +1217,9 @@ class ModIndex
 class MwChains implements MiddlewareInterface
 {
     public static $GLOBAL_CHAIN = [
-        // [CookieAuthMw::class, []],
-        // [IniSetMw::class, []],
-        // [SetCharsetModule::class, []],
-        // [HeadersMw::class, []],
-        // [SessionImportModule::class, []],
-        // [LivePatch::class, []],
         // [SetUserProcModule::class, []],
         // [MwChains::class, [
         //     'chain' => [
-        //         [CheckpointModule::class, []],
         //         [ProcessRqMw::class, []],
         //     ],
         //     'resolver' => [self::class, 'resolveTrue'],
@@ -1239,7 +1232,6 @@ class MwChains implements MiddlewareInterface
         // 'default' => [
         //     [SetRLMMw::class, ['rlm_uuid' => Main::MOD_UUID]],
         //     [UserDisplayMw::class, []],
-        //     [DumpVarsMw::class, []],
         // ],
     ];
 

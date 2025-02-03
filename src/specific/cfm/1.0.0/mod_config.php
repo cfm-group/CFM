@@ -26,11 +26,6 @@ ini_set('display_errors', 0);
 
 MwChains::$GLOBAL_CHAIN = [
     [HeadersMw::class, []],
-    // [RuntimeConfig::class, [
-    //     CheckpointModule::class => [
-    //         'allow_checkpoint_disable' => false,
-    //     ],
-    // ]],
     [MwChains::class, [
         'chain' => [
             [RuntimeConfig::class, [
@@ -54,7 +49,6 @@ MwChains::$GLOBAL_CHAIN = [
                 ],
                 'default' => TreeViewModule::MOD_UUID,
             ]],
-            // [CheckpointModule::class, []],
         ],
         'resolver' => [MwChains::class, 'resolveTrue'],
     ]],

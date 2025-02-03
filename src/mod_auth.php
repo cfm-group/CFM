@@ -161,12 +161,6 @@ class CoreAuthenticationModule implements
         if (!password_verify($password, $current['pwd_hash']))
             return ['status' => -1, 'msg' => 'Invalid login/password'];
 
-        $key = hash_hmac(
-            'sha256',
-            $login,
-            static::$SECRET . floor(time() / static::$C_EPOCH_DT)
-        );
-
         $nonce = dechex(mt_rand(0, PHP_INT_MAX));
         $currentKey = static::createCurrentKey($login, $nonce);
         $persistantKey = static::createPersistantKey($login, $nonce);

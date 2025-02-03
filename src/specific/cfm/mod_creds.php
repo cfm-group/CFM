@@ -16,7 +16,7 @@
 
 # Codename: Crystal File Manager
 # Author: trashlogic
-# GPG Key FP: 4EAD395B0CAA2FEF7AF34CD0D1334ABBDF34AFFC
+# GPG Key FP: 40AC0FCA09058D53546DBDC46E37526E230EAE9E
 # Target PHP version: PHP 5 (>= 5.5.0), PHP 7, PHP 8
 # Tested with:
 #  - GNU/Linux (x86_64) (Apache, PHP Development Server)

@@ -323,10 +323,11 @@ class FileViewModule implements UserModuleInterface
             )
             . '<a '
                 . 'href="?'
-                .  http_build_query([
-                    'proc' => 'download',
-                    'file' => $curr_args['path']
-                ]) . '" '
+                    .  http_build_query([
+                        'proc' => 'download',
+                        'file' => $curr_args['path']
+                    ])
+                . '" '
                 . 'target="_blank" '
             . '>'
                 . '<button type="button">Download</button>'
