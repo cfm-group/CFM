@@ -16,7 +16,7 @@
 
 # Codename: Crystal File Manager
 # Author: trashlogic
-# GPG Key FP: 4EAD395B0CAA2FEF7AF34CD0D1334ABBDF34AFFC
+# GPG Key FP: 40AC0FCA09058D53546DBDC46E37526E230EAE9E
 # Target PHP version: PHP 5 (>= 5.5.0), PHP 7, PHP 8
 # Tested with:
 #  - GNU/Linux (x86_64) (Apache, PHP Development Server)
@@ -1144,7 +1144,6 @@ class ModStack implements Iterator
 
         if (!$this->runable) {
             $this->runable_reason = 'Invalid call';
-
             return;
         }
 
@@ -1158,7 +1157,7 @@ class ModStack implements Iterator
         }
     }
 
-    protected function runSetup()/*: bool*/
+    protected function restore()/*: bool*/
     {
         $this->rewind();
 
@@ -1169,11 +1168,12 @@ class ModStack implements Iterator
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        if (!$this->runSetup())
+        if (!$this->restore())
             return;
 
         foreach ($this as $cls) {
             $curr_args = $cls::process($args, $prnt_args);
+            assert(!is_array($curr_args), 'Invalid process call result');
 
             $this->procStore[$this->currentUUID()] = [$curr_args, $prnt_args];
             $prnt_args = $curr_args;
@@ -1185,7 +1185,7 @@ class ModStack implements Iterator
     public function reProcess(
         ArgsStore $args,
         /*string*/ $uuid,
-    )/*: array*/ {
+    )/*: ?array*/ {
         if (!array_key_exists($uuid, $this->procStore))
             return;
 
@@ -1200,7 +1200,7 @@ class ModStack implements Iterator
 
     public function form(ArgsStore $args)/*: string*/
     {
-        if (!$this->runSetup())
+        if (!$this->restore())
             return;
         if ($this->currentUUID() == $this->getRLM())
             return 'RLM execution is forbidden';
@@ -1242,7 +1242,7 @@ class ModStack implements Iterator
         array $curr_args,
         array $prnt_args = []
     )/*: ?string*/ {
-        if (!$this->runSetup())
+        if (!$this->restore())
             return;
 
         return $this->nextDisplay($args, $curr_args, $prnt_args);
@@ -1255,7 +1255,7 @@ class ModStack implements Iterator
         array $curr_args,
         array $prnt_args = []
     )/*: mixed*/ {
-        if (!$this->runSetup())
+        if (!$this->restore())
             return;
 
         $cls = $this->getTarget();
@@ -1558,16 +1558,9 @@ class ModIndex
 class MwChains implements MiddlewareInterface
 {
     public static $GLOBAL_CHAIN = [
-        // [CookieAuthMw::class, []],
-        // [IniSetMw::class, []],
-        // [SetCharsetModule::class, []],
-        // [HeadersMw::class, []],
-        // [SessionImportModule::class, []],
-        // [LivePatch::class, []],
         // [SetUserProcModule::class, []],
         // [MwChains::class, [
         //     'chain' => [
-        //         [CheckpointModule::class, []],
         //         [ProcessRqMw::class, []],
         //     ],
         //     'resolver' => [self::class, 'resolveTrue'],
@@ -1580,7 +1573,6 @@ class MwChains implements MiddlewareInterface
         // 'default' => [
         //     [SetRLMMw::class, ['rlm_uuid' => Main::MOD_UUID]],
         //     [UserDisplayMw::class, []],
-        //     [DumpVarsMw::class, []],
         // ],
     ];
 
@@ -1875,9 +1867,10 @@ abstract class GroupModule implements UserModuleInterface
     public static function moduleIter()/*: Generator*/
     {
         foreach (ModIndex::getParents(static::MOD_UUID) as $uuid => $cls) {
+            if (!is_subclass_of($cls, UserModuleInterface::class, true))
+                continue;
             if (
-                !is_subclass_of($cls, UserModuleInterface::class, true)
-                && is_subclass_of($cls, EnvCheckInterface::class, true)
+                is_subclass_of($cls, EnvCheckInterface::class, true)
                 && !$cls::checkEnv()[0]
             )
                 continue;
@@ -2328,11 +2321,18 @@ class RuntimeConfig implements MiddlewareInterface
         $args->callAdd('cfgVSet', [$this, 'set']);
         $args->callAdd('cfgDump', [$this, 'dump']);
         $args->callAdd(
-            'cfgFullGet',
+            'cfgIGet',
             function () {
                 return $this;
             }
         );
+        $args->callAdd(
+            'pathCurrent',
+            function () {
+                return $_SERVER['SCRIPT_FILENAME'];
+            }
+        );
+        $this->args = $args;
 
         if (is_null($config))
             $config = static::$DEFAULT_RT_CONFIG;
@@ -2357,7 +2357,7 @@ class RuntimeConfig implements MiddlewareInterface
         static::$DEFAULT_RT_CONFIG = $config;
     }
 
-    public static function defaultAdd(/*string*/ $cls)/*: bool*/
+    public static function addDefault(/*string*/ $cls)/*: bool*/
     {
         if (!is_subclass_of($cls, ConfigProviderInterface::class, true))
             return false;
@@ -2389,8 +2389,11 @@ class RuntimeConfig implements MiddlewareInterface
             && array_key_exists($key, $this->currentConfig[$cls]);
     }
 
-    public function get(/*string*/ $cls, /*string*/ $key, /*mixed*/ $default = null)/*: mixed*/
-    {
+    public function get(
+        /*string*/ $cls,
+        /*string*/ $key,
+        /*mixed*/ $default = null
+    )/*: mixed*/ {
         if (!static::defaultExists($cls, $key))
             return $default;
         if ($this->currentExists($cls, $key))
@@ -2426,6 +2429,33 @@ class RuntimeConfig implements MiddlewareInterface
     {
         return $this->runtimeConfig;
     }
+
+    public function dumpToPart(/*string*/ $file)/*: array*/
+    {
+        if (!is_writable($file))
+            return [
+                'status' => -1,
+                'msg' => 'Settings can\'t be saved. Current file is Read-Only',
+            ];
+
+        $mods = Infuser::defuse($this->args, $file);
+        if (!array_key_exists('rt_config', $mods))
+            return [
+                'status' => -2,
+                'msg' => 'Current file doesn\'t specify Runtime Config section',
+            ];
+
+        if (!Infuser::infuseToFile($file, $mods))
+            return [
+                'status' => -3,
+                'msg' => 'Unable to remove infuse or write file'
+            ];
+
+        if (extension_loaded('Zend OPcache'))
+            opcache_invalidate($file, true);
+
+        return ['status' => 0];
+    }
 }
 
 class RuntimeConfigFuser implements BasicFuserInterface
@@ -2442,7 +2472,7 @@ class RuntimeConfigFuser implements BasicFuserInterface
 
     public function isSustainable()/*: bool*/
     {
-        return $this->args->isCallAvailable('cfgFullGet');
+        return $this->args->isCallAvailable('cfgIGet');
     }
 
     public function isRequired()/*: bool*/
@@ -3209,10 +3239,11 @@ class FileViewModule implements UserModuleInterface
             )
             . '<a '
                 . 'href="?'
-                .  http_build_query([
-                    'proc' => 'download',
-                    'file' => $curr_args['path']
-                ]) . '" '
+                    .  http_build_query([
+                        'proc' => 'download',
+                        'file' => $curr_args['path']
+                    ])
+                . '" '
                 . 'target="_blank" '
             . '>'
                 . '<button type="button">Download</button>'
@@ -3372,7 +3403,7 @@ class TreeCreateDirectoryModule implements UserModuleInterface
         if (is_file($target))
             return ['status' => -6, 'msg' => 'File with this name already exists'];
         if (file_exists($target))
-            return ['status' => 1, 'Folder already exists'];
+            return ['status' => 10, 'msg' => 'Folder already exists'];
         if (!is_writable($path))
             return ['status' => -7, 'msg' => 'Parent directory isn\'t writable'];
         if (!mkdir($target))
@@ -4220,13 +4251,13 @@ class SetListUserModule implements UserModuleInterface
     }
 }
 
-class SetAddUserModule implements UserModuleInterface
+class SetupFirstUserModule implements UserModuleInterface
 {
     use FormTools;
 
-    const MOD_UUID = 'c4cee578-fdde-43ed-aa39-d3707619f3d9';
-    const MOD_NAME = 'Add new user';
-    const MOD_PARENT = UserSettingsGroup::MOD_UUID;
+    const MOD_UUID = 'a9d79596-45ba-4773-9b1f-c1b7ede28018';
+    const MOD_NAME = 'Create first user';
+    const MOD_PARENT = SetupGroup::MOD_UUID;
 
     public static $FORM_FIELDS = [
         'new_username' => [
@@ -4239,7 +4270,11 @@ class SetAddUserModule implements UserModuleInterface
             ],
             'o_field_schema' => [
                 'type' => 'text',
-                'placeholder' => 'login',
+                'placeholder' => 'username',
+                'attrs' => [
+                    'minlength' => 4,
+                    'maxlength' => 12,
+                ],
             ],
         ],
         'new_password' => [
@@ -4253,6 +4288,10 @@ class SetAddUserModule implements UserModuleInterface
             'o_field_schema' => [
                 'type' => 'password',
                 'placeholder' => 'password',
+                'attrs' => [
+                    'minlength' => 8,
+                    'maxlength' => 64,
+                ],
             ],
             'o_prevent_export' => ['display', 'preserve'],
         ],
@@ -4262,21 +4301,20 @@ class SetAddUserModule implements UserModuleInterface
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        if ($prnt_args['status'] < 0)
-            return $prnt_args;
-
         $username = static::valueGet($args, 'new_username');
         $password = static::valueGet($args, 'new_password');
+        if (!$username && !$password)
+            return ['status' => 1];
         if (!$username || !$password)
-            return ['status' => -1, 'msg' => 'Invalid username or password'];
+            return [
+                'status' => -1,
+                'msg' => 'Username or password does not meet the requirements'
+            ];
 
         $cls = SettingsModule::$AUTH_CLS;
         $result = $cls::addUser($args, $username, $password);
         if ($result['status'] < 0)
             return ['status' => -2, 'msg' => $result['msg']];
-
-        if (!Infuser::infuseToFile($prnt_args['path'], $prnt_args['mods']))
-            return ['status' => -3, 'msg' => 'Unable to add new user'];
 
         return ['status' => 0];
     }
@@ -4294,8 +4332,42 @@ class SetAddUserModule implements UserModuleInterface
         array $curr_args,
         array $prnt_args = []
     )/*: ?string*/ {
+    }
+}
+
+class SetAddUserModule extends SetupFirstUserModule implements UserModuleInterface
+{
+    const MOD_UUID = 'c4cee578-fdde-43ed-aa39-d3707619f3d9';
+    const MOD_NAME = 'Add new user';
+    const MOD_PARENT = UserSettingsGroup::MOD_UUID;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        if ($prnt_args['status'] < 0)
+            return $prnt_args;
+
+        $result = parent::process($args, $prnt_args);
+        if ($result['status'] !== 0)
+            return $result;
+
+        $result = $args->cfgIGet()->dumpToPart($prnt_args['path']);
+        if ($result['status'] < 0)
+            return ['status' => -3, 'msg' => 'Unable to add new user'];
+
+        return ['status' => 0];
+    }
+
+    public static function display(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args);
+        if ($curr_args['status'] === 1)
+            return;
 
         return 'New user successfully created';
     }
@@ -4320,7 +4392,11 @@ class SetRemoveUserModule implements UserModuleInterface
             ],
             'o_field_schema' => [
                 'type' => 'text',
-                'placeholder' => 'login',
+                'placeholder' => 'username',
+                'attrs' => [
+                    'minlength' => 4,
+                    'maxlength' => 12,
+                ],
             ],
         ],
     ];
@@ -4344,8 +4420,9 @@ class SetRemoveUserModule implements UserModuleInterface
         if ($result['status'] < 0)
             return ['status' => -3, 'msg' => $result['msg']];
 
-        if (!Infuser::infuseToFile($prnt_args['path'], $prnt_args['mods']))
-            return ['status' => -4, 'msg' => 'Unable to remove user'];
+        $result = $args->cfgIGet()->dumpToPart($prnt_args['path']);
+        if ($result['status'] < 0)
+            return ['status' => -3, 'msg' => 'Unable to add new user'];
 
         return ['status' => 0];
     }
@@ -4388,25 +4465,9 @@ class SettingsModule extends PlainGroupModule implements UserModuleInterface
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        if (!is_writable(__FILE__))
-            return [
-                'status' => -1,
-                'msg' => 'Settings can\'t be saved. Current file is Read-Only',
-            ];
-
-        $file = $_SERVER['SCRIPT_FILENAME'];
-        $mods = Infuser::defuse($args, $file);
-
-        if (!array_key_exists('rt_config', $mods))
-            return [
-                'status' => -2,
-                'msg' => 'Current file doesn\'t specify Runtime Config section',
-            ];
-
         return [
             'status' => 0,
-            'path' => $file,
-            'mods' => $mods,
+            'path' => $args->pathCurrent(),
         ];
     }
 }
@@ -4416,6 +4477,7 @@ ModIndex::addModule(UserSettingsGroup::class);
 ModIndex::addModule(SetListUserModule::class);
 ModIndex::addModule(SetAddUserModule::class);
 ModIndex::addModule(SetRemoveUserModule::class);
+ModIndex::addModule(SetupFirstUserModule::class);
 /**&
 @module_content
   uuid: c271e92a-e358-4580-bd26-828f36b83a4d
@@ -4704,7 +4766,7 @@ class Main implements UserModuleInterface, ConfigProviderInterface
 }
 
 ModIndex::addModule(Main::class);
-RuntimeConfig::defaultAdd(Main::class);
+RuntimeConfig::addDefault(Main::class);
 /**&
 @module_content
   uuid: a11190f6-fee2-4a5b-9687-8edd9c3e1b5b
@@ -4726,25 +4788,43 @@ class CoreAuthenticationModule implements
     const MOD_PARENT = null;
 
     public static $FORM_FIELDS = [
-        'ca_login' => [
+        'ca_username' => [
             't_str',
             'c_not_empty' => [],
+            'c_limit' => [
+                'mode' => 'len',
+                'minq' => 4,
+                'maxq' => 12,
+            ],
             'o_field_schema' => [
-                'placeholder' => 'login'
+                'type' => 'text',
+                'placeholder' => 'username',
+                'attrs' => [
+                    'minlength' => 4,
+                    'maxlength' => 12,
+                ],
             ],
         ],
         'ca_password' => [
             't_str',
             'c_not_empty' => [],
+            'c_limit' => [
+                'mode' => 'len',
+                'minq' => 8,
+                'maxq' => 64,
+            ],
             'o_field_schema' => [
                 'type' => 'password',
                 'placeholder' => 'password',
+                'attrs' => [
+                    'minlength' => 8,
+                    'maxlength' => 64,
+                ],
             ],
-            'o_prevent_export' => ['preserve', 'display'],
+            'o_prevent_export' => ['display', 'preserve'],
         ],
     ];
     public static $HASH_ALGO = 'sha256';
-    public static $SECRET = 'zc59FaCRgqkvLX8KkfOrfo0iwXGCMJro';
     public static $C_EPOCH_DT = 3600; // Current epoch
     public static $P_EPOCH_DT = 604800; // Persistant epoch
     public static $USER_TEMPLATE = [
@@ -4757,13 +4837,14 @@ class CoreAuthenticationModule implements
             || !array_key_exists('key_nonce', $_COOKIE)
         ) {
             $args->getStack()->resetFromUUID(static::MOD_UUID);
-
             return false;
         }
 
+        $secret = $args->cfgVGet(static::class, 'secret');
         $username = $_COOKIE['current_user'];
         $currentAuthorized = false;
         $currentKey = static::createCurrentKey(
+            $secret,
             $username,
             $_COOKIE['key_nonce']
         );
@@ -4775,6 +4856,7 @@ class CoreAuthenticationModule implements
 
         $persistantAuthorized = false;
         $persistantKey = static::createPersistantKey(
+            $secret,
             $username,
             $_COOKIE['key_nonce']
         );
@@ -4786,7 +4868,6 @@ class CoreAuthenticationModule implements
 
         if (!($currentAuthorized || $persistantAuthorized)) {
             $args->getStack()->resetFromUUID(static::MOD_UUID);
-
             return false;
         }
 
@@ -4823,6 +4904,7 @@ class CoreAuthenticationModule implements
     }
 
     public static function createKey(
+        /*string*/ $secret,
         /*string*/ $username,
         /*string*/ $nonce,
         /*int*/ $epochTime
@@ -4830,55 +4912,63 @@ class CoreAuthenticationModule implements
         return hash_hmac(
             static::$HASH_ALGO,
             $username . '_' . $nonce,
-            static::$SECRET . '_' . floor(time() / $epochTime)
+            $secret . '_' . floor(time() / $epochTime)
         );
     }
 
     public static function createCurrentKey(
+        /*string*/ $secret,
         /*string*/ $username,
         /*string*/ $nonce
     )/*: string*/ {
-        return static::createKey($username, $nonce, static::$C_EPOCH_DT);
+        return static::createKey(
+            $secret,
+            $username,
+            $nonce,
+            static::$C_EPOCH_DT
+        );
     }
 
     public static function createPersistantKey(
+        /*string*/ $secret,
         /*string*/ $username,
         /*string*/ $nonce
     )/*: string*/ {
-        return static::createKey($username, $nonce, static::$P_EPOCH_DT);
+        return static::createKey(
+            $secret,
+            $username,
+            $nonce,
+            static::$P_EPOCH_DT
+        );
     }
 
     public static function process(
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        $login = static::valueGet($args, 'ca_login');
+        $username = static::valueGet($args, 'ca_username');
         $password = static::valueGet($args, 'ca_password');
-
-        if (!$login || !$password)
-            return;
+        if (!$username && !$password)
+            return ['status' => 1];
+        if (!$username || !$password)
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
 
         $users = $args->cfgVGet(static::class, 'users', []);
-        if (!array_key_exists($login, $users))
-            return ['status' => -1, 'msg' => 'Invalid login/password'];
+        if (!array_key_exists($username, $users))
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
 
-        $current = $users[$login];
+        $current = $users[$username];
         if (!password_verify($password, $current['pwd_hash']))
-            return ['status' => -1, 'msg' => 'Invalid login/password'];
-
-        $key = hash_hmac(
-            'sha256',
-            $login,
-            static::$SECRET . floor(time() / static::$C_EPOCH_DT)
-        );
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
 
         $nonce = dechex(mt_rand(0, PHP_INT_MAX));
-        $currentKey = static::createCurrentKey($login, $nonce);
-        $persistantKey = static::createPersistantKey($login, $nonce);
+        $secret = $args->cfgVGet(static::class, 'secret');
+        $currentKey = static::createCurrentKey($secret, $username, $nonce);
+        $persistantKey = static::createPersistantKey($secret, $username, $nonce);
 
         return [
             'status' => 0,
-            'login' => $login,
+            'username' => $username,
             'key_nonce' => $nonce,
             'current_key' => $currentKey,
             'persistant_key' => $persistantKey,
@@ -4889,7 +4979,7 @@ class CoreAuthenticationModule implements
     {
         return
             '<border class="stack">'
-                . static::fieldGet($args, 'ca_login')
+                . static::fieldGet($args, 'ca_username')
                 . static::fieldGet($args, 'ca_password')
                 . '<input type="submit" value="Log in">'
             . '</border>';
@@ -4902,14 +4992,18 @@ class CoreAuthenticationModule implements
     )/*: ?string*/ {
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args);
+        if ($curr_args['status'] === 1)
+            return;
 
         $pTime = time() + static::$P_EPOCH_DT;
         $cTime = time() + static::$C_EPOCH_DT;
-        setcookie('current_user', $curr_args['login'], $pTime, '/');
+        setcookie('current_user', $curr_args['username'], $pTime, '/');
         setcookie('key_nonce', $curr_args['key_nonce'], $pTime, '/');
         setcookie('current_key', $curr_args['current_key'], $cTime, '/');
         setcookie('persistant_key', $curr_args['persistant_key'], $pTime, '/');
-        header('Refresh: 0');
+        
+        http_response_code(303);
+        header('Location: ');
 
         return '<border>Successfull authorization. Reload the page</border>';
     }
@@ -4968,12 +5062,9 @@ class CoreAuthenticationModule implements
     public static function configGet()/*: array*/
     {
         return [
+            'secret' => null,
             'current_user' => null,
-            'users' => [
-                'admin' => [
-                    'pwd_hash' => '$2y$10$bZYpKrvScznAVgjTISqxTedA/w9cy1iX2NMVPgAWHsTfZFAhrT0s2',
-                ],
-            ],
+            'users' => [],
         ];
     }
 }
@@ -5042,15 +5133,40 @@ class CoreLogoutModule implements
         foreach ($curr_args['keys'] as $key) {
             setcookie($key, '', 0, '/');
         }
-        header('Refresh: 0');
+
+        http_response_code(303);
+        header('Location: ');
 
         return '<border>Successfull logout. Reload the page</border>';
     }
 }
 
+class SetupSessionSecretModule implements BasicModuleInterface
+{
+    const MOD_UUID = '7ae13f6b-7e94-4697-b31d-9039a5772831';
+    const MOD_NAME = 'Setup Session Secret';
+    const MOD_PARENT = SetupGroup::MOD_UUID;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        $secret = '';
+        for ($i = 0; $i < 4; $i++)
+            $secret .= dechex(mt_rand());
+
+        $secret = hash('sha256', $secret);
+
+        $args->cfgVSet(CoreAuthenticationModule::class, 'secret', $secret, true);
+
+        return ['status' => 0];
+    }
+}
+
 ModIndex::addModule(CoreAuthenticationModule::class);
 ModIndex::addModule(CoreLogoutModule::class, false, [Main::MOD_UUID]);
-RuntimeConfig::defaultAdd(CoreAuthenticationModule::class);
+ModIndex::addModule(SetupSessionSecretModule::class);
+RuntimeConfig::addDefault(CoreAuthenticationModule::class);
 /**&
 @module_content
   uuid: c5748ec8-00e4-4b4d-bd49-f8a04e85fa52
@@ -5105,12 +5221,6 @@ define(
 ini_set('display_errors', 0);
 
 MwChains::$GLOBAL_CHAIN = [
-    [HeadersMw::class, []],
-    // [RuntimeConfig::class, [
-    //     CheckpointModule::class => [
-    //         'allow_checkpoint_disable' => false,
-    //     ],
-    // ]],
     [MwChains::class, [
         'chain' => [
             [RuntimeConfig::class, [
@@ -5119,6 +5229,7 @@ MwChains::$GLOBAL_CHAIN = [
                     'show_cred' => false,
                 ],
             ]],
+            [SetupModule::class, []],
             [CoreAuthenticationModule::class, []],
             [RuntimeConfig::class, [
                 Main::class => [
@@ -5134,7 +5245,6 @@ MwChains::$GLOBAL_CHAIN = [
                 ],
                 'default' => TreeViewModule::MOD_UUID,
             ]],
-            // [CheckpointModule::class, []],
         ],
         'resolver' => [MwChains::class, 'resolveTrue'],
     ]],
