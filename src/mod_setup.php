@@ -58,7 +58,6 @@ class SetupModule extends PlainGroupModule implements
 
             if ($result['status'] !== 0)
                 return $result;
-                // return ['status' => -2, 'msg' => $result['msg'], 'cls' => $cls];
         }
 
         $args->cfgVSet(SetupGroup::class, 'setup_complete', true, true);
@@ -88,7 +87,10 @@ class SetupModule extends PlainGroupModule implements
         http_response_code(303);
         header('Location: ');
 
-        return '<border>Installation completed successfully. Reload the page</border>';
+        return
+            '<border>'
+                . 'Installation completed successfully. Reload the page'
+            . '</border>';
     }
 }
 

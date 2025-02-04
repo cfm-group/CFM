@@ -66,6 +66,7 @@ class SetupFirstUserModule implements UserModuleInterface
                 'type' => 'text',
                 'placeholder' => 'username',
                 'attrs' => [
+                    'autocomplete' => 'off',
                     'minlength' => 4,
                     'maxlength' => 12,
                 ],
@@ -190,6 +191,7 @@ class SetRemoveUserModule implements UserModuleInterface
                 'type' => 'text',
                 'placeholder' => 'username',
                 'attrs' => [
+                    'autocomplete' => 'off',
                     'minlength' => 4,
                     'maxlength' => 12,
                 ],

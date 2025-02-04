@@ -59,3 +59,4 @@ Open `http://localhost:8080/cfm-canary.php` in browser
  - File content preview
  - Localisation system
  - Tokens for anonymous access to files
+ - MIME type override based on file extension

@@ -9,20 +9,6 @@
     verm: 1
     required: true
 &*/
-trait CheckPathName
-{
-    protected static function checkPathName(/*string*/ $name)/*: bool*/
-    {
-        return !(
-            strlen($name) == 0
-            || $name === '.'
-            || $name === '..'
-            || stripos('/', $name) !== false
-            || stripos('\\', $name) !== false
-        );
-    }
-}
-
 class TreeCreateFileModule implements UserModuleInterface
 {
     use FormTools;

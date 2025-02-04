@@ -1117,7 +1117,6 @@ class ModIndex
     )/*: int*/ {
         if (!array_key_exists($uuid, static::$TI))
             return -2;
-
         if (!array_key_exists($uuid, static::$PL))
             static::$PL[$uuid] = [];
 

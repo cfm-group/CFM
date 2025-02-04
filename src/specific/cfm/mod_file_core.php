@@ -9,11 +9,25 @@
     verm: 1
     required: true
 &*/
+trait CheckPathName
+{
+    protected static function checkPathName(/*string*/ $name)/*: bool*/
+    {
+        return !(
+            strlen($name) == 0
+            || $name === '.'
+            || $name === '..'
+            || stripos($name, '/') !== false
+            || stripos($name, '\\') !== false
+        );
+    }
+}
+
 trait CoreSizeConv
 {
     public function getNormSize()/*: double*/
     {
-        $units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+        $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
         
         $size = $this->getSize();
         $n = 0;
@@ -205,10 +219,6 @@ class CoreFSIter extends ArrayIterator
     {
         if (!is_dir($path)) {
             $this->okReason = 'Unable to traverse non-directory';
-            return;
-        }
-        if (!file_exists($path)) {
-            $this->okReason = 'Invalid path';
             return;
         }
         if (!is_readable($path)) {

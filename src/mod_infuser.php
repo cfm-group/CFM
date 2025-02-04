@@ -93,17 +93,26 @@ class Infuser
         /*string*/ $sourcePath,
         /*string*/ $targetPath
     )/*: array*/ {
+        $n = 0;
+        $result = [];
         foreach (static::defuse($args, $sourcePath) as $key => $data) {
-            $targetFile = $targetPath . DIRECTORY_SEPARATOR . $key . '.php';
+            $targetFile =
+                $targetPath
+                . DIRECTORY_SEPARATOR
+                . $n  . '_' . $key . '.php';
             $handle = fopen($targetFile , 'wb');
             if ($handle === false)
-                continue;
+                throw new Exception('Unable to open file to write mod');
 
             foreach (static::infuseGen([$data]) as $line)
                 fwrite($handle, $line);
 
+            $n++;
+            $result[] = $targetFile;
             fclose($handle);
         }
+
+        return $result;
     }
 
     public static function infuseGen(array $content = [])/*: Generator*/

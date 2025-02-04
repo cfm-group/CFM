@@ -34,6 +34,7 @@ class CoreAuthenticationModule implements
                 'type' => 'text',
                 'placeholder' => 'username',
                 'attrs' => [
+                    'autocomplete' => 'off',
                     'minlength' => 4,
                     'maxlength' => 12,
                 ],
