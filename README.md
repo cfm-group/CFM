@@ -9,26 +9,27 @@ Advanced file manager that fits in single PHP file.
 
 [Main repository](https://gitflic.ru/project/consensus/cfm)
 
-# Functionality:
+# Functionality
  - **Basic Operations** - Upload/move/delete files, create folders, etc.
  - **Authorisation** - Ability to create and manage user accounts
+ - **Easy configuration** - All configuration is done through a graphical interface
  - **Search, sorting and pagination** - Thousands of files won't get in the way of a comfortable workflow.
- - **Mobile adaptability** - Access your files on the go.
- - **Partial download support** - You can download a file if your download is interrupted.
 
- # Key Features:
+ # Key Features
  - **Free Licence** (AGPLv3)
  - **No dependencies** (Only built-in PHP functions)
  - **Most of the functionality works without JavaScript**
  - **Modular architecture** (Easy to write plugins)
  - **Delta Updates**
+ - **Adapted for mobile devices**
+ - **Partial download support**
  - **Availability of Json API**
 
-# Requirements:
+# Requirements
  - PHP >= 5.5.0
  - Extensions(Built-in): json, iconv, hash
 
-# Installation and Use:
+# Installation and Use
 ```bash
 wget https://raw.githubusercontent.com/trashlogic/CFM/refs/heads/master/cfm.php
 php -S localhost:8080
@@ -49,7 +50,7 @@ php -S localhost:8080
 ```
 Open `http://localhost:8080/cfm-canary.php` in browser
 
-# TODO:
+# TODO
  - WebDAV protocol support
  - System of rights to perform operations
  - Possibility of faking root directory
