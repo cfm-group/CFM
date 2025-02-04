@@ -1,7 +1,7 @@
 # Crystal File Manager
 ## The project is in the development phase
 
-Advanced file manager that fits in 1 PHP file.
+Advanced file manager that fits in single PHP file.
 
 *a.k.a. Server file manager*
 
