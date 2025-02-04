@@ -79,6 +79,7 @@ trait FormTools
          * - minq - Minimum-equal (>=) value length
          */
         'c_limit' => [self::class, 'specElemLimit'],
+        'c_domain' => [self::class, 'specCheckDomain'],
         'd_json' => [self::class, 'specElemJsonDecode'],
     ];
     /**
@@ -139,10 +140,8 @@ trait FormTools
     )/*: mixed*/ {
         if (!array_key_exists($spec[0], static::$FT_LUT))
             return $default;
-
         if (is_null($default) && array_key_exists('o_default_value', $spec))
             $default = $spec['o_default_value'];
-
         if (!isset($args[$key]))
             return $default;
 
@@ -203,10 +202,8 @@ trait FormTools
 
     protected static function buildAttrs(array $attrs)/*: string*/
     {
-        $attrs = static::escapeData($attrs);
-
         $result = '';
-        foreach ($attrs as $attKey => $attValue) {
+        foreach (static::escapeData($attrs) as $attKey => $attValue) {
             $result .= ' ' . $attKey . '="' . $attValue . '"';
         }
 
@@ -526,6 +523,25 @@ trait FormTools
             || array_key_exists('maxq', $elemParams) && $n > $elemParams['maxq']
             || array_key_exists('minq', $elemParams) && $n < $elemParams['minq']
         )
+            return false;
+
+        $result = $value;
+
+        return true;
+    }
+
+    protected static function specCheckDomain(
+        array $elemParams,
+        ArgsStore $args,
+        /*string*/ $key,
+        /*mixed*/ $value,
+        /*mixed*/ &$result
+    )/*: bool*/ {
+        if (!array_key_exists('from', $elemParams))
+            return false;
+
+        $domain = $args->domainFromOffset($key);
+        if ($domain !== $elemParams['from'])
             return false;
 
         $result = $value;

@@ -56,6 +56,7 @@ class SetupFirstUserModule implements UserModuleInterface
         'new_username' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 4,
@@ -73,6 +74,7 @@ class SetupFirstUserModule implements UserModuleInterface
         'new_password' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 8,
@@ -178,6 +180,7 @@ class SetRemoveUserModule implements UserModuleInterface
         'del_username' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 4,

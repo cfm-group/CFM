@@ -10,11 +10,7 @@ require('src/mod_infuser.php');
 require('src/mod_rt_config.php');
 
 $args = new ArgsStore();
-$rtcfg = new RuntimeConfig(
-    $args,
-    [
-    ]
-);
+$rtcfg = new RuntimeConfig($args);
 $modules = require_once('src/specific/cfm/1.0.0/runtime_mods.php');
 
 function loadMods(ArgsStore $args, array $modulesList)/* array*/

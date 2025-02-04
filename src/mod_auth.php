@@ -24,6 +24,7 @@ class CoreAuthenticationModule implements
         'ca_username' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 4,
@@ -41,6 +42,7 @@ class CoreAuthenticationModule implements
         'ca_password' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 8,
@@ -119,6 +121,8 @@ class CoreAuthenticationModule implements
             );
 
         $args->cfgVSet(static::class, 'current_user', $username);
+
+        // ini_set('open_basedir', getcwd());
 
         return true;
     }

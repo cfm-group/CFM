@@ -18,25 +18,12 @@ class FileViewDeleteModule implements UserModuleInterface
     const MOD_NAME = 'Delete file';
     const MOD_PARENT = FileViewModule::MOD_UUID;
 
-    public static $FORM_FIELDS = [
-        'delete_confirm' => [
-            't_bool',
-            'c_not_empty' => [],
-            'o_default_value' => false,
-            'o_prevent_export' => ['preserve', 'display'],
-        ],
-    ];
-
     public static function process(
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
         if ($prnt_args['status'] < 0)
             return $prnt_args;
-
-        $delete = static::valueGet($args, 'delete_confirm');
-        if (!$delete)
-            return ['status' => 0, 'deleted' => $delete];
 
         if (!unlink($prnt_args['path']))
             return ['status' => -3, 'msg' => 'Unable to delete file'];
@@ -48,7 +35,11 @@ class FileViewDeleteModule implements UserModuleInterface
 
     public static function form(ArgsStore $args)/*: ?string*/
     {
-        return static::submitGet('Delete');
+        return static::buttonGet('proc', static::MOD_UUID, 'Delete', [
+            'style' => 'border-color: red;',
+            'title' => 'This operation is irreversable',
+            'onclick' => 'return confirm(\'Definitely delete current directory?\nCurrent folder and ITS CONTENT will be deleted\');'
+        ]);
     }
 
     public static function display(
@@ -61,8 +52,8 @@ class FileViewDeleteModule implements UserModuleInterface
 
         if ($curr_args['deleted'])
             return 'File successfully deleted';
-        else
-            return static::buttonGet('delete_confirm', 1, 'Definitely delete');
+
+        return static::buttonGet('delete_confirm', 1, 'Definitely delete');
     }
 }
 
@@ -84,11 +75,20 @@ class FileDownloadModule implements
         return $prnt_args;
     }
 
-    public static function form(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: ?string*/ {
-        return static::submitGet('Download');
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+        return
+            '<a '
+                . 'href="?'
+                    .  http_build_query([
+                        'proc' => 'download',
+                        'file' => $curr_args['path']
+                    ])
+                . '" '
+                . 'target="_blank" '
+            . '>'
+                . '<button type="button">Download</button>'
+            . '</a>';
     }
 
     public static function display(
@@ -236,7 +236,7 @@ class FileDownloadModule implements
     }
 }
 
-class FileViewModule implements UserModuleInterface
+class FileViewModule extends PlainGroupModule implements UserModuleInterface
 {
     use FormTools;
 
@@ -269,9 +269,12 @@ class FileViewModule implements UserModuleInterface
     )/*: array*/ {
         $path = static::valueGet($args, 'file');
         if (!is_file($path))
-            return [ 'status' => -1, 'msg' => 'File not found'];
+            return ['status' => -1, 'msg' => 'File not found'];
         if (!is_readable($path))
-            return [ 'status' => -2, 'msg' => 'Permission denied. Unable to read file'];
+            return [
+                'status' => -2,
+                'msg' => 'Permission denied. Unable to read file'
+            ];
 
         $file = new CoreFileInfo($path);
 
@@ -312,36 +315,25 @@ class FileViewModule implements UserModuleInterface
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args);
 
-        $moduleResult = $args->getStack()->nextDisplay($args, []);
+        // $moduleResult = $args->getStack()->nextDisplay($args, []);
 
         return
-            ($moduleResult
+            // $args->getStack()->nextDisplay($args, [])
+            parent::display($args, $curr_args, $prnt_args)
+            . ($moduleResult
                 ? '<border class="result">'
                     . $moduleResult
                 . '</border>'
                 : ''
             )
-            . '<a '
-                . 'href="?'
-                    .  http_build_query([
-                        'proc' => 'download',
-                        'file' => $curr_args['path']
-                    ])
-                . '" '
-                . 'target="_blank" '
-            . '>'
-                . '<button type="button">Download</button>'
-            . '</a>'
-            . '<button type="submit" name="proc" value="delete">'
-                . 'Delete'
-            . '</button>'
-            . '<input disabled="" type="text" name="file_new_name" placeholder="New name">'
-            . '<button disabled="" type="submit" name="" value="rename">'
-                . 'Rename'
-            . '</button>'
-            . '<button disabled="" type="submit" name="" value="copy">'
-                . 'Move/Copy'
-            . '</button>';
+            . parent::form($args);
+            // . '<input disabled="" type="text" name="file_new_name" placeholder="New name">'
+            // . '<button disabled="" type="submit" name="" value="rename">'
+            //     . 'Rename'
+            // . '</button>'
+            // . '<button disabled="" type="submit" name="" value="copy">'
+            //     . 'Move/Copy'
+            // . '</button>';
     }
 }
 
