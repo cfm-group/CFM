@@ -518,7 +518,8 @@ trait FormTools
         }
 
         if (
-            array_key_exists('max', $elemParams) && $n >= $elemParams['max']
+            array_key_exists('eq', $elemParams) && $n != $elemParams['eq']
+            || array_key_exists('max', $elemParams) && $n >= $elemParams['max']
             || array_key_exists('min', $elemParams) && $n <= $elemParams['min']
             || array_key_exists('maxq', $elemParams) && $n > $elemParams['maxq']
             || array_key_exists('minq', $elemParams) && $n < $elemParams['minq']
@@ -666,6 +667,36 @@ trait FormTools
         /*mixed*/ &$result
     )/*: mixed*/ {
         return false;
+    }
+}
+
+trait SecurityTools
+{
+    protected static function getRandBytes(/*int*/ $n)/*: string*/
+    {
+        $result = '';
+        if (PHP_VERSION_ID < 70000) {
+            mt_srand();
+            for ($i = 0; $i < $n; $i++)
+                $result .= dechex(mt_rand(0, 255));
+        } else {
+            $result = bin2hex(random_bytes($n));
+        }
+
+        return $result;
+    }
+
+    public static function hashCompare(/*string*/ $a, /*string*/ $b)/*: bool*/
+    {
+        $len = strlen($a);
+        if ($len !== strlen($b))
+            return false;
+
+        $status = 0;
+        for ($i = 0; $i < $len; $i++)
+            $status |= ord($a[$i]) ^ ord($b[$i]);
+
+        return $status === 0;
     }
 }
 
@@ -1007,14 +1038,21 @@ class ModStack implements Iterator
         return $this->rlm;
     }
 
-    public function targetUUID()/*: string*/
+    public function targetUUID()/*: ?string*/
     {
+        if (empty($this->stack))
+            return;
+
         return $this->stack[0];
     }
 
-    public function getTarget()/*: string*/
+    public function getTarget()/*: ?string*/
     {
-        return ModIndex::$TI[$this->targetUUID()];
+        $uuid = $this->targetUUID();
+        if (is_null($uuid))
+            return;
+
+        return ModIndex::$TI[$uuid];
     }
 
     public function targetArgs(ArgsStore $args)/*: ?array*/
@@ -1043,7 +1081,7 @@ class ModStack implements Iterator
         );
     }
 
-    protected function argsByUUID(ArgsStore $args, /*string*/ $uuid)/*: ?array*/
+    protected function argsByUUID(ArgsStore $args, /*?string*/ $uuid)/*: ?array*/
     {
         if (!array_key_exists($uuid, $this->procStore))
             return;
@@ -1104,11 +1142,11 @@ class ModIndex
 
     // Top-Level Modules
     public static $TLM = [];
-    // Parents Tree
+    // Parents List
     public static $PL = [];
     // Total index
     public static $TI = [
-        SetUserProcModule::MOD_UUID => SetUserProcModule::class,
+        SetUserStackModule::MOD_UUID => SetUserStackModule::class,
     ];
 
     public static function addParent(
@@ -1232,7 +1270,7 @@ class ModIndex
 class MwChains implements MiddlewareInterface
 {
     public static $GLOBAL_CHAIN = [
-        // [SetUserProcModule::class, []],
+        // [SetUserStackModule::class, []],
         // [MwChains::class, [
         //     'chain' => [
         //         [ProcessRqMw::class, []],
@@ -1335,7 +1373,7 @@ class MwChains implements MiddlewareInterface
     }
 }
 
-class SetUserProcModule implements BasicModuleInterface, MiddlewareInterface
+class SetUserStackModule implements BasicModuleInterface, MiddlewareInterface
 {
     use FormTools;
 

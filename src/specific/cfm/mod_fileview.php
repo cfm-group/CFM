@@ -30,7 +30,7 @@ class FileViewDeleteModule implements UserModuleInterface
 
         $args->getStack()->reProcess($args, FileViewModule::MOD_UUID);
 
-        return ['status' => 0, 'deleted' => $delete];
+        return ['status' => 0];
     }
 
     public static function form(ArgsStore $args)/*: ?string*/
@@ -50,10 +50,7 @@ class FileViewDeleteModule implements UserModuleInterface
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args, '', true);
 
-        if ($curr_args['deleted'])
-            return 'File successfully deleted';
-
-        return static::buttonGet('delete_confirm', 1, 'Definitely delete');
+        return 'File successfully deleted';
     }
 }
 
@@ -77,12 +74,15 @@ class FileDownloadModule implements
 
     public static function form(ArgsStore $args)/*: ?string*/
     {
+        // :\
+        $path = FileViewModule::valueGet($args, 'file');
+
         return
             '<a '
                 . 'href="?'
                     .  http_build_query([
                         'proc' => 'download',
-                        'file' => $curr_args['path']
+                        'file' => $path
                     ])
                 . '" '
                 . 'target="_blank" '
@@ -315,12 +315,12 @@ class FileViewModule extends PlainGroupModule implements UserModuleInterface
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args);
 
-        // $moduleResult = $args->getStack()->nextDisplay($args, []);
+        $moduleResult = $args->getStack()->nextDisplay($args, []);
 
         return
             // $args->getStack()->nextDisplay($args, [])
-            parent::display($args, $curr_args, $prnt_args)
-            . ($moduleResult
+            // parent::display($args, $curr_args, $prnt_args)
+            ($moduleResult
                 ? '<border class="result">'
                     . $moduleResult
                 . '</border>'

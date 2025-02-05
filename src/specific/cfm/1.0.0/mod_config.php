@@ -41,7 +41,7 @@ MwChains::$GLOBAL_CHAIN = [
                     'show_cred' => true,
                 ],
             ]],
-            [SetUserProcModule::class, [
+            [SetUserStackModule::class, [
                 'alias' => [
                     'view' => FileViewModule::MOD_UUID,
                     'download' => FileDownloadModule::MOD_UUID,
@@ -54,6 +54,7 @@ MwChains::$GLOBAL_CHAIN = [
     ]],
     [MwChains::class, [
         'chain' => [
+            [FormProtectModule::class, []],
             [ProcessRqMw::class, []],
         ],
         'resolver' => [MwChains::class, 'resolveTrue'],
@@ -70,3 +71,16 @@ MwChains::$CHAINS = [
 ];
 
 ModIndex::addParent(CoreLogoutModule::class, CFMMain::MOD_UUID);
+ModIndex::addParent(
+    FormProtectModule::class,
+    CFMMain::MOD_UUID
+);
+
+ModIndex::addParent(
+    FileViewDeleteModule::class,
+    FormProtectModule::MOD_UUID
+);
+ModIndex::addParent(
+    TreeDeleteDirectoryModule::class,
+    FormProtectModule::MOD_UUID
+);

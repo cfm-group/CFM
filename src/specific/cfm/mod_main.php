@@ -271,10 +271,8 @@ class CFMMain implements UserModuleInterface, ConfigProviderInterface
 
         return
             '<border class="no_border">'
-                // . '<div>'
-                    . $stack->form($args)
-                    . $stack->display($args, [])
-                // . '</div>'
+                . $stack->form($args)
+                . $stack->display($args, [])
             . '</border>';
     }
 

@@ -8,6 +8,7 @@ return [
     'src/mod_rt_config.php' => [],
     'src/mod_setup.php' => [],
     'src/mod_version.php' => [],
+    'src/mod_security.php' => [],
     'src/specific/cfm/mod_file_core.php' => [],
     'src/specific/cfm/mod_fileview.php' => [],
     'src/specific/cfm/mod_treeview.php' => [],

@@ -14,6 +14,7 @@ class CoreAuthenticationModule implements
     MiddlewareInterface,
     ConfigProviderInterface
 {
+    use SecurityTools;
     use FormTools;
 
     const MOD_UUID = '21bd5bf0-1bf9-4d87-bce1-734d5426b7fb';
@@ -78,6 +79,7 @@ class CoreAuthenticationModule implements
 
         $secret = $args->cfgVGet(static::class, 'secret');
         $username = $_COOKIE['current_user'];
+
         $currentAuthorized = false;
         $currentKey = static::createCurrentKey(
             $secret,
@@ -121,24 +123,12 @@ class CoreAuthenticationModule implements
                 time() + static::$P_EPOCH_DT
             );
 
+        $args->cfgVSet(static::class, 'is_authorized', true);
         $args->cfgVSet(static::class, 'current_user', $username);
 
         // ini_set('open_basedir', getcwd());
 
         return true;
-    }
-
-    public static function hashCompare(/*string*/ $a, /*string*/ $b)
-    {
-        $len = strlen($a);
-        if ($len !== strlen($b))
-            return false;
-
-        $status = 0;
-        for ($i = 0; $i < $len; $i++)
-            $status |= ord($a[$i]) ^ ord($b[$i]);
-
-        return $status === 0;
     }
 
     public static function createKey(
@@ -199,7 +189,8 @@ class CoreAuthenticationModule implements
         if (!password_verify($password, $current['pwd_hash']))
             return ['status' => -1, 'msg' => 'Invalid username/password'];
 
-        $nonce = dechex(mt_rand(0, PHP_INT_MAX));
+        $nonce = static::getRandBytes(8);
+        // $nonce = dechex(mt_rand(0, PHP_INT_MAX));
         $secret = $args->cfgVGet(static::class, 'secret');
         $currentKey = static::createCurrentKey($secret, $username, $nonce);
         $persistantKey = static::createPersistantKey($secret, $username, $nonce);
@@ -239,7 +230,7 @@ class CoreAuthenticationModule implements
         setcookie('key_nonce', $curr_args['key_nonce'], $pTime, '/');
         setcookie('current_key', $curr_args['current_key'], $cTime, '/');
         setcookie('persistant_key', $curr_args['persistant_key'], $pTime, '/');
-        
+
         http_response_code(303);
         header('Location: ');
 
@@ -300,6 +291,7 @@ class CoreAuthenticationModule implements
     public static function configGet()/*: array*/
     {
         return [
+            'is_authorized' => false,
             'secret' => null,
             'current_user' => null,
             'users' => [],
@@ -381,6 +373,8 @@ class CoreLogoutModule implements
 
 class SetupSessionSecretModule implements BasicModuleInterface
 {
+    use SecurityTools;
+
     const MOD_UUID = '7ae13f6b-7e94-4697-b31d-9039a5772831';
     const MOD_NAME = 'Setup Session Secret';
     const MOD_PARENT = SetupGroup::MOD_UUID;
@@ -389,13 +383,12 @@ class SetupSessionSecretModule implements BasicModuleInterface
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        $secret = '';
-        for ($i = 0; $i < 4; $i++)
-            $secret .= dechex(mt_rand());
-
-        $secret = hash('sha256', $secret);
-
-        $args->cfgVSet(CoreAuthenticationModule::class, 'secret', $secret, true);
+        $args->cfgVSet(
+            CoreAuthenticationModule::class,
+            'secret',
+            static::getRandBytes(32),
+            true
+        );
 
         return ['status' => 0];
     }
