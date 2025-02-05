@@ -123,7 +123,6 @@ class CoreAuthenticationModule implements
                 time() + static::$P_EPOCH_DT
             );
 
-        $args->cfgVSet(static::class, 'is_authorized', true);
         $args->cfgVSet(static::class, 'current_user', $username);
 
         // ini_set('open_basedir', getcwd());
@@ -190,7 +189,6 @@ class CoreAuthenticationModule implements
             return ['status' => -1, 'msg' => 'Invalid username/password'];
 
         $nonce = static::getRandBytes(8);
-        // $nonce = dechex(mt_rand(0, PHP_INT_MAX));
         $secret = $args->cfgVGet(static::class, 'secret');
         $currentKey = static::createCurrentKey($secret, $username, $nonce);
         $persistantKey = static::createPersistantKey($secret, $username, $nonce);
@@ -291,7 +289,6 @@ class CoreAuthenticationModule implements
     public static function configGet()/*: array*/
     {
         return [
-            'is_authorized' => false,
             'secret' => null,
             'current_user' => null,
             'users' => [],

@@ -84,9 +84,7 @@ class FormProtectModule implements
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        return [
-            'status' => 0,
-        ];
+        return ['status' => 0];
     }
 
     public static function gadget(ArgsStore $args)/*: ?string*/
