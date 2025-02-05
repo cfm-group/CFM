@@ -25,11 +25,9 @@ trait CheckPathName
 
 trait CoreSizeConv
 {
-    public function getNormSize()/*: double*/
+    protected static function normalizeSize(/*int*/ $size)/*: string*/
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
-        
-        $size = $this->getSize();
         $n = 0;
         while ($size > 1024) {
             $size /= 1024;
@@ -70,16 +68,9 @@ class CoreFileInfo extends SplFileInfo
 
     public function getNormSize()/*: double*/
     {
-        $units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'];
-        
-        $size = $this->getSize();
-        $n = 0;
-        while ($size > 1024) {
-            $size /= 1024;
-            $n++;
-        }
-
-        return round($size, 1) . $units[$n];
+        return static::normalizeSize(
+            $this->getSize()
+        );
     }
 
     public function getNormPerms()/*: string*/
@@ -242,6 +233,13 @@ class CoreFSIter extends ArrayIterator
             $this->ok = false;
             $this->okReason = $e->getMessage();
         }
+    }
+
+    public function getNormSize()/*: double*/
+    {
+        return static::normalizeSize(
+            $this->getSize()
+        );
     }
 
     public function isOk()/*: bool*/

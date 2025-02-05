@@ -435,6 +435,7 @@ class TreeUnsafeOpsGroup extends HiddenGroupModule implements UserModuleInterfac
 class TreeViewModule implements UserModuleInterface, MachineModuleInterface
 {
     use FormTools;
+    use CoreSizeConv;
 
     const MOD_UUID = '8bf01fa7-207c-4cfd-aad8-df9de6ddab21';
     const MOD_NAME = 'File Tree View';
@@ -712,7 +713,12 @@ class TreeViewModule implements UserModuleInterface, MachineModuleInterface
                         . ceil($count / $limit)
                     : '1 / 1'
                 )
-                . ' (' . $count . ' or ' . $curr_args['norm_size'] . ')'
+                . ' (' . $count . ' or ' . $curr_args['norm_size'] . ') '
+                .  (($freeSpace = disk_free_space($curr_args['path'])) === false
+                    ? '---'
+                    : static::normalizeSize($freeSpace)
+                )
+                . ' Free'
             . '</border>';
         $mOffsetBtn = static::buttonGet('offset', $offset - $limit, '◀', (
             $limit && $offset > 0
