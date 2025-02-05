@@ -1,5 +1,4 @@
 # Crystal File Manager
-## The project is in the development phase
 
 Advanced file manager that fits in single PHP file.
 
@@ -30,6 +29,7 @@ Advanced file manager that fits in single PHP file.
  - Extensions(Built-in): json, iconv, hash
 
 # Installation and Use
+## The project is in the development phase
 ```bash
 wget https://raw.githubusercontent.com/trashlogic/CFM/refs/heads/master/cfm.php
 php -S localhost:8080

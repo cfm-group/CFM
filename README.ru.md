@@ -1,5 +1,4 @@
 # Crystal File Manager
-## Проект находится на этапе разработки
 
 Продвинутый файловый менеджер, умещающийся в единственный PHP-файле.
 
@@ -30,6 +29,7 @@
  - Расширения(Присутствуют по умолчанию): json, iconv, hash
 
 # Установка и использование
+## Проект находится на этапе разработки
 ```bash
 wget https://raw.githubusercontent.com/trashlogic/CFM/refs/heads/master/cfm.php
 php -S localhost:8080
