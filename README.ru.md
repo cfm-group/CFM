@@ -6,7 +6,7 @@
 
 [Ru](README.ru.md) | [En](README.md)
 
-[Основной репозиторий](https://gitflic.ru/project/consensus/cfm)
+[GitFlick](https://gitflic.ru/project/consensus/cfm) | [GitHub](https://github.com/cfm-group/CFM)
 
 # Функциональность
  - **Базовые операции** - Загрузка/перемещение/удаление файлов, создание папок и т.д.
