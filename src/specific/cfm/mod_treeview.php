@@ -177,25 +177,12 @@ class TreeDeleteDirectoryModule implements UserModuleInterface
     const MOD_NAME = 'Delete current directory';
     const MOD_PARENT = TreeUnsafeOpsGroup::MOD_UUID;
 
-    public static $FORM_FIELDS = [
-        'delete_confirm' => [
-            't_bool',
-            'c_not_empty' => [],
-            'o_default_value' => false,
-            'o_prevent_export' => ['preserve', 'display'],
-        ],
-    ];
-    
     public static function process(
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
         if ($prnt_args['status'] < 0)
             return $prnt_args;
-
-        // $delete = static::valueGet($args, 'delete_confirm');
-        // if (!$delete)
-        //     return ['status' => 0, 'deleted' => $delete];
 
         if (!static::deleteFolderContent($prnt_args['path']))
             return ['status' => -3, 'msg' => 'Unable to fully delete folder'];
@@ -222,12 +209,7 @@ class TreeDeleteDirectoryModule implements UserModuleInterface
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args, '', true);
 
-        // if ($curr_args['deleted'])
         return 'Folder successfully deleted';
-        // else
-            // return static::buttonGet('delete_confirm', 1, 'Definitely delete', [
-                // 'onclick' => 'event.stopPropagation();'
-            // ]);
     }
 
     public static function deleteFolderContent(/*string*/ $path)/*: bool*/
