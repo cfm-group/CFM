@@ -10,12 +10,12 @@
     verm: 1
     required: true
 &*/
-class Main implements UserModuleInterface, ConfigProviderInterface
+class CFMMain implements UserModuleInterface, ConfigProviderInterface
 {
     use FormTools;
 
     const MOD_UUID = 'e901ceb9-9853-4999-aa4c-45b58c50c19f';
-    const MOD_NAME = 'Main';
+    const MOD_NAME = 'CFM Main';
     const MOD_PARENT = null;
 
     public static function process(
@@ -287,5 +287,5 @@ class Main implements UserModuleInterface, ConfigProviderInterface
     }
 }
 
-ModIndex::addModule(Main::class);
-RuntimeConfig::addDefault(Main::class);
+ModIndex::addModule(CFMMain::class);
+RuntimeConfig::addDefault(CFMMain::class);

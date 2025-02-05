@@ -402,6 +402,6 @@ class SetupSessionSecretModule implements BasicModuleInterface
 }
 
 ModIndex::addModule(CoreAuthenticationModule::class);
-ModIndex::addModule(CoreLogoutModule::class, false, [Main::MOD_UUID]);
+ModIndex::addModule(CoreLogoutModule::class);
 ModIndex::addModule(SetupSessionSecretModule::class);
 RuntimeConfig::addDefault(CoreAuthenticationModule::class);

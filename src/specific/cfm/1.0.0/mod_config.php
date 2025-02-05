@@ -28,7 +28,7 @@ MwChains::$GLOBAL_CHAIN = [
     [MwChains::class, [
         'chain' => [
             [RuntimeConfig::class, [
-                Main::class => [
+                CFMMain::class => [
                     'show_menu' => false,
                     'show_cred' => false,
                 ],
@@ -36,7 +36,7 @@ MwChains::$GLOBAL_CHAIN = [
             [SetupModule::class, []],
             [CoreAuthenticationModule::class, []],
             [RuntimeConfig::class, [
-                Main::class => [
+                CFMMain::class => [
                     'show_menu' => true,
                     'show_cred' => true,
                 ],
@@ -64,7 +64,9 @@ MwChains::$GLOBAL_CHAIN = [
 ];
 MwChains::$CHAINS = [
     'default' => [
-        [SetRLMMw::class, ['rlm_uuid' => Main::MOD_UUID]],
+        [SetRLMMw::class, ['rlm_uuid' => CFMMain::MOD_UUID]],
         [UserDisplayMw::class, []],
     ],
 ];
+
+ModIndex::addParent(CoreLogoutModule::class, CFMMain::MOD_UUID);
