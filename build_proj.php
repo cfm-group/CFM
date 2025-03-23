@@ -5,9 +5,9 @@ if ($argc != 2) {
     exit(1);
 }
 
-require('src/mod_microcore.php');
-require('src/mod_infuser.php');
-require('src/mod_rt_config.php');
+require('src/core/mod_microcore.php');
+require('src/core/mod_infuser.php');
+require('src/core/mod_rt_config.php');
 
 $targetProject = $argv[1];
 $targetSubdir = 'src/specific/' . $targetProject;

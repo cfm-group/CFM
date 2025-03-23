@@ -78,7 +78,7 @@ class Infuser
         
     // }
 
-    public static function cmdAdd(/*string*/ $cls)/*: bool*/
+    public static function addCmd(/*string*/ $cls)/*: bool*/
     {
         if (!is_subclass_of($cls, BasicFuserInterface::class, true))
             return false;

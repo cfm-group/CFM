@@ -231,4 +231,4 @@ class RuntimeConfigFuser implements BasicFuserInterface
     }
 }
 
-Infuser::cmdAdd(RuntimeConfigFuser::class);
+Infuser::addCmd(RuntimeConfigFuser::class);
