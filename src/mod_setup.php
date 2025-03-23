@@ -1,5 +1,13 @@
 <?php
 
+/**&
+  @module_content
+    uuid: cbb1d654-396f-49fc-b575-6ca687b7899c
+    name: Core Setup
+    author: trashlogic
+    license: AGPL-3.0-only
+    verm: 1
+&*/
 class SetupGroup extends GroupModule implements
     UserModuleInterface,
     ConfigProviderInterface
