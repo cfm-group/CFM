@@ -19,6 +19,8 @@ class RuntimeConfig implements MiddlewareInterface
     protected static /*array*/ $DEFAULT_RT_CONFIG = [];
     protected static /*array*/ $DEFAULT_CONFIGS = [];
 
+    protected ArgsStore $args;
+
     public /*array*/ $runtimeConfig = [];
     public /*array*/ $currentConfig = [];
 
