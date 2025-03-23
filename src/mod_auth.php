@@ -235,9 +235,18 @@ class CoreAuthenticationModule implements
         return '<border>Successfull authorization. Reload the page</border>';
     }
 
-    public static function currentUser(ArgsStore $args)/*: array*/
+    public static function currentUser(ArgsStore $args)/*: ?string*/
     {
         return $args->cfgVGet(static::class, 'current_user');
+    }
+
+    public static function currentUserData(ArgsStore $args)/*: ?array*/
+    {
+        $username = static::currentUser($args);
+        if (is_null($username))
+            return;
+
+        $args->cfgVGet(static::class, 'users')[$username];
     }
 
     public static function listUsers(ArgsStore $args)/*: array*/
@@ -262,12 +271,9 @@ class CoreAuthenticationModule implements
         $users[$username] = $user;
 
         if (!$args->cfgVSet(static::class, 'users', $users, true))
-            return ['status' => -2, 'msg' => 'Unable to add new user'];
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
 
-        return [
-            'status' => 0,
-            'user' => $user,
-        ];
+        return ['status' => 0, 'user' => $user];
     }
 
     public static function delUser(
@@ -279,11 +285,26 @@ class CoreAuthenticationModule implements
             return ['status' => -1, 'msg' => 'Unknown user'];
 
         unset($users[$username]);
-        
+
         if (!$args->cfgVSet(static::class, 'users', $users, true))
-            return ['status' => -2, 'msg' => 'Unable to remove user'];
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
 
         return ['status' => 0];
+    }
+
+    public static function updUser(
+        ArgsStore $args,
+        /*string*/ $username,
+        /*array*/ $data
+    )/*: array*/ {
+        $users = $args->cfgVGet(static::class, 'users');
+        if (!array_key_exists($username, $users))
+            return ['status' => -1, 'msg' => 'Unknown user'];
+
+        $users[$username] = $data;
+
+        if (!$args->cfgVSet(static::class, 'users', $users, true))
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
     }
 
     public static function configGet()/*: array*/
