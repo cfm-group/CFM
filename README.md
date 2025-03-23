@@ -45,10 +45,10 @@ To test changes use `runtime_cfm.php`
 
 ```bash
 git clone https://github.com/cfm-group/CFM
-php -f build_cfm.php ./cfm-canary.php
+php -f build_proj.php cfm
 php -S localhost:8080
 ```
-Open `http://localhost:8080/cfm-canary.php` in browser
+Open `http://localhost:8080/cfm.php` in browser
 
 # TODO
  - WebDAV protocol support

@@ -45,10 +45,10 @@ php -S localhost:8080
 
 ```bash
 git clone https://github.com/cfm-group/CFM
-php -f build_cfm.php ./cfm-canary.php
+php -f build_proj.php cfm
 php -S localhost:8080
 ```
-Открыть в браузере `http://localhost:8080/cfm-canary.php`
+Открыть в браузере `http://localhost:8080/cfm.php`
 
 # TODO
  - Поддержка протокола WebDAV

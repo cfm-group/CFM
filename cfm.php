@@ -2590,7 +2590,7 @@ Infuser::addCmd(RuntimeConfigFuser::class);
 /**&
 @runtime_config
 &*/
-RuntimeConfig::defaultRuntimeSet(json_decode('[]', true));
+RuntimeConfig::defaultRuntimeSet(json_decode('{"FormProtectModule":{"secret":"45a090de378a1c2d31337ad277f662d3b307fdfee7df5c0126f4d57d63921022"},"CoreAuthenticationModule":{"secret":"23f111cb0d47d64af9c13d0131fd8beb71f9df6f1b161835255a5b602e1f2291","users":{"admin":{"pwd_hash":"$2y$10$1KnjHbFL2m64Bm.w2UkTrOJnD5weX1apvs34RPg54UcWad56sd\/6K"}}},"SetupGroup":{"setup_complete":true}}', true));
 /**&
 @module_content
   uuid: cbb1d654-396f-49fc-b575-6ca687b7899c
