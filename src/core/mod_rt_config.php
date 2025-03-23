@@ -19,7 +19,7 @@ class RuntimeConfig implements MiddlewareInterface
     protected static /*array*/ $DEFAULT_RT_CONFIG = [];
     protected static /*array*/ $DEFAULT_CONFIGS = [];
 
-    protected ArgsStore $args;
+    protected /*ArgsStore*/ $args;
 
     public /*array*/ $runtimeConfig = [];
     public /*array*/ $currentConfig = [];
@@ -228,7 +228,7 @@ class RuntimeConfigFuser implements BasicFuserInterface
             . ");\n";
     }
 
-    public function readTick(/*bool*/ $inDescription, string $data)/*: void*/
+    public function readTick(/*bool*/ $inDescription, /*string*/ $data)/*: void*/
     {
     }
 }

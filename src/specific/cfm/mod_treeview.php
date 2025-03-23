@@ -603,14 +603,16 @@ class TreeViewModule implements UserModuleInterface, MachineModuleInterface
             $data = CoreFSIter::$DEFAULT_SORT_VALUES[$key];
             try {
                 $value = $fileInfo->{$data['display_call']}();
-                if (array_key_exists($key, static::$TREE_DISPLAY_MOD))
-                    $value = static::$TREE_DISPLAY_MOD[$key](
+                if (array_key_exists($key, static::$TREE_DISPLAY_MOD)) {
+                    $call = static::$TREE_DISPLAY_MOD[$key];
+                    $value = $call(
                         $args,
                         $fileInfo,
                         $key,
                         $value
                     );
-            } catch (Exception) {
+                }
+            } catch (Exception $e) {
                 $value = '????';
             }
 
@@ -810,7 +812,7 @@ class TreeViewModule implements UserModuleInterface, MachineModuleInterface
 
         try {
             $mime = $fileInfo->getMIME();
-        } catch (RuntimeException) {
+        } catch (RuntimeException $e) {
             $mime = 'unknown';
         }
 
@@ -891,7 +893,7 @@ class TreeViewModule implements UserModuleInterface, MachineModuleInterface
             return 
                 $fileInfo->getNormPerms()
                 . ' (' . substr(sprintf('%o', $fileInfo->getPerms()), -4) . ')';
-        } catch (Exception) {
+        } catch (Exception $e) {
             return '(????) ?????????';
         }
     }

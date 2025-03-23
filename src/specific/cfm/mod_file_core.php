@@ -55,7 +55,7 @@ class CoreFileInfo extends SplFileInfo
 
         try {
             $this->mime_cache = mime_content_type($path);
-        } catch(Exception) {
+        } catch(Exception $e) {
         }
 
         return $this->mime_cache;
@@ -128,7 +128,8 @@ class CoreSearchFilter extends FilterIterator
         $this->needle = $needle;
     }
 
-    public function accept(): bool
+    #[\ReturnTypeWillChange]
+    public function accept()/*: bool*/
     {
         $name = $this
             ->getInnerIterator()
@@ -221,12 +222,19 @@ class CoreFSIter extends ArrayIterator
                 $path,
                 FilesystemIterator::KEY_AS_PATHNAME
                 | FilesystemIterator::CURRENT_AS_FILEINFO
-                // | FilesystemIterator::SKIP_DOTS
+                | FilesystemIterator::SKIP_DOTS
             );
             $fsIter->setInfoClass(static::$FILE_CLASS);
-            parent::__construct(
-                iterator_to_array($fsIter)
-            );
+
+            #PHP5 compat
+            $fileCls = static::$FILE_CLASS;
+            $entries = [
+                '.' => new $fileCls($path . '/.'),
+                '..' => new $fileCls($path . '/..')
+            ];
+            $entries += iterator_to_array($fsIter);
+
+            parent::__construct($entries);
 
             $this->ok = true;
         } catch (Exception $e) {
@@ -271,7 +279,7 @@ class CoreFSIter extends ArrayIterator
                     return (is_string($a->$call())
                         ? strnatcmp($a->$call(), $b->$call())
                         : $b->$call() - $a->$call());
-                } catch (Exception) {
+                } catch (Exception $e) {
                     return 0;
                 }
             }
@@ -293,7 +301,7 @@ class CoreFSIter extends ArrayIterator
                         return -1;
                     if ($bIsDir)
                         return 1;
-                } catch (Exception) {
+                } catch (Exception $e) {
                 }
 
                 return 0;
@@ -303,8 +311,10 @@ class CoreFSIter extends ArrayIterator
         return $this;
     }
 
-    public function limit(int $offset = 0, int $limit = 0)/*: ArrayIterator*/
-    {
+    public function limit(
+        /*int*/ $offset = 0,
+        /*int*/ $limit = 0
+    )/*: ArrayIterator*/ {
         if (!$limit || !$this->isOk())
             return $this;
         if ($offset >= count($this))
@@ -348,7 +358,7 @@ class CoreFSIter extends ArrayIterator
         foreach ($this as $fileInfo) {
             try {
                 $result += $fileInfo->getSize();
-            } catch (Exception) {
+            } catch (Exception $e) {
             }
         }
 

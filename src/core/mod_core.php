@@ -412,7 +412,7 @@ trait FormTools
     public static function errorGet(
         array $data,
         /*string*/ $prefix = '',
-        /*bool*/ $decorate = true,
+        /*bool*/ $decorate = true
     )/*: string*/ {
         $result =
             $prefix
@@ -890,7 +890,7 @@ class ModStack implements Iterator
 
     public function reProcess(
         ArgsStore $args,
-        /*string*/ $uuid,
+        /*string*/ $uuid
     )/*: ?array*/ {
         if (!array_key_exists($uuid, $this->procStore))
             return;
@@ -1151,7 +1151,7 @@ class ModIndex
 
     public static function addParent(
         /*string*/ $cls,
-        /*string*/ $uuid,
+        /*string*/ $uuid
     )/*: int*/ {
         if (!array_key_exists($uuid, static::$TI))
             return -2;

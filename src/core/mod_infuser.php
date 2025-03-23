@@ -54,7 +54,10 @@ interface BasicFuserInterface
 
     public function dataGet()/*: Generator*/;
 
-    public function readTick(Infuser $inf, string $data)/*: void*/;
+    public function readTick(
+        /*bool*/ $inDescription,
+        /*string*/ $data
+    )/*: void*/;
 }
 
 class Infuser
@@ -234,7 +237,7 @@ abstract class AbstractFuser
         $this->args = $args;
     }
 
-    public function readTick(/*bool*/ $inDescription, string $data)/*: void*/
+    public function readTick(/*bool*/ $inDescription, /*string*/ $data)/*: void*/
     {
         if ($inDescription)
             return $this->descReadTick($data);
@@ -242,9 +245,9 @@ abstract class AbstractFuser
         return $this->contReadTick($data);
     }
 
-    abstract protected function descReadTick(string $data)/*: void*/;
+    abstract protected function descReadTick(/*string*/ $data)/*: void*/;
 
-    abstract protected function contReadTick(string $data)/*: void*/;
+    abstract protected function contReadTick(/*string*/ $data)/*: void*/;
 }
 
 class ModContentFuser extends AbstractFuser implements BasicFuserInterface
@@ -359,7 +362,7 @@ class ModContentFuser extends AbstractFuser implements BasicFuserInterface
             yield $data;
     }
 
-    protected function descReadTick(string $data)/*: void*/
+    protected function descReadTick(/*string*/ $data)/*: void*/
     {
         $data = explode(':', $data);
         if (count($data) != 2)
@@ -367,11 +370,14 @@ class ModContentFuser extends AbstractFuser implements BasicFuserInterface
 
         $data = array_map('trim', $data);
         list($key, $value) = $data;
-        if (array_key_exists($key, static::$ALLOWED_KEYS))
-            $this->{$key} = static::$ALLOWED_KEYS[$key]($value);
+        if (array_key_exists($key, static::$ALLOWED_KEYS)){
+            // PHP5 compat
+            $call = static::$ALLOWED_KEYS[$key];
+            $this->{$key} = $call($value);
+        }
     }
 
-    protected function contReadTick(string $data)/*: void*/
+    protected function contReadTick(/*string*/ $data)/*: void*/
     {
         $this->data[] = $data;
     }

@@ -22,11 +22,10 @@ $main = function ()/*: void*/
     $args->domainAdd($_POST, 'post');
     $args->domainAdd($_GET, 'get');
 
-    // $page = (isset($args['page']) && is_string($args['page'])
-    //     ? $args['page']
-    //     : 'default'
-    // );
-    $page = 'default';
+    $page = (isset($args['page']) && is_string($args['page'])
+        ? $args['page']
+        : 'default'
+    );
     if (MwChains::invokeFullChain($args, $page) < 0)
         http_response_code(404);
 };

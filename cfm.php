@@ -753,7 +753,7 @@ trait FormTools
     public static function errorGet(
         array $data,
         /*string*/ $prefix = '',
-        /*bool*/ $decorate = true,
+        /*bool*/ $decorate = true
     )/*: string*/ {
         $result =
             $prefix
@@ -1231,7 +1231,7 @@ class ModStack implements Iterator
 
     public function reProcess(
         ArgsStore $args,
-        /*string*/ $uuid,
+        /*string*/ $uuid
     )/*: ?array*/ {
         if (!array_key_exists($uuid, $this->procStore))
             return;
@@ -1492,7 +1492,7 @@ class ModIndex
 
     public static function addParent(
         /*string*/ $cls,
-        /*string*/ $uuid,
+        /*string*/ $uuid
     )/*: int*/ {
         if (!array_key_exists($uuid, static::$TI))
             return -2;
@@ -2033,7 +2033,10 @@ interface BasicFuserInterface
 
     public function dataGet()/*: Generator*/;
 
-    public function readTick(Infuser $inf, string $data)/*: void*/;
+    public function readTick(
+        /*bool*/ $inDescription,
+        /*string*/ $data
+    )/*: void*/;
 }
 
 class Infuser
@@ -2213,7 +2216,7 @@ abstract class AbstractFuser
         $this->args = $args;
     }
 
-    public function readTick(/*bool*/ $inDescription, string $data)/*: void*/
+    public function readTick(/*bool*/ $inDescription, /*string*/ $data)/*: void*/
     {
         if ($inDescription)
             return $this->descReadTick($data);
@@ -2221,9 +2224,9 @@ abstract class AbstractFuser
         return $this->contReadTick($data);
     }
 
-    abstract protected function descReadTick(string $data)/*: void*/;
+    abstract protected function descReadTick(/*string*/ $data)/*: void*/;
 
-    abstract protected function contReadTick(string $data)/*: void*/;
+    abstract protected function contReadTick(/*string*/ $data)/*: void*/;
 }
 
 class ModContentFuser extends AbstractFuser implements BasicFuserInterface
@@ -2338,7 +2341,7 @@ class ModContentFuser extends AbstractFuser implements BasicFuserInterface
             yield $data;
     }
 
-    protected function descReadTick(string $data)/*: void*/
+    protected function descReadTick(/*string*/ $data)/*: void*/
     {
         $data = explode(':', $data);
         if (count($data) != 2)
@@ -2346,11 +2349,14 @@ class ModContentFuser extends AbstractFuser implements BasicFuserInterface
 
         $data = array_map('trim', $data);
         list($key, $value) = $data;
-        if (array_key_exists($key, static::$ALLOWED_KEYS))
-            $this->{$key} = static::$ALLOWED_KEYS[$key]($value);
+        if (array_key_exists($key, static::$ALLOWED_KEYS)){
+            // PHP5 compat
+            $call = static::$ALLOWED_KEYS[$key];
+            $this->{$key} = $call($value);
+        }
     }
 
-    protected function contReadTick(string $data)/*: void*/
+    protected function contReadTick(/*string*/ $data)/*: void*/
     {
         $this->data[] = $data;
     }
@@ -2373,6 +2379,8 @@ class RuntimeConfig implements MiddlewareInterface
 {
     protected static /*array*/ $DEFAULT_RT_CONFIG = [];
     protected static /*array*/ $DEFAULT_CONFIGS = [];
+
+    protected /*ArgsStore*/ $args;
 
     public /*array*/ $runtimeConfig = [];
     public /*array*/ $currentConfig = [];
@@ -2581,7 +2589,7 @@ class RuntimeConfigFuser implements BasicFuserInterface
             . ");\n";
     }
 
-    public function readTick(/*bool*/ $inDescription, string $data)/*: void*/
+    public function readTick(/*bool*/ $inDescription, /*string*/ $data)/*: void*/
     {
     }
 }
@@ -2590,7 +2598,7 @@ Infuser::addCmd(RuntimeConfigFuser::class);
 /**&
 @runtime_config
 &*/
-RuntimeConfig::defaultRuntimeSet(json_decode('{"FormProtectModule":{"secret":"45a090de378a1c2d31337ad277f662d3b307fdfee7df5c0126f4d57d63921022"},"CoreAuthenticationModule":{"secret":"23f111cb0d47d64af9c13d0131fd8beb71f9df6f1b161835255a5b602e1f2291","users":{"admin":{"pwd_hash":"$2y$10$1KnjHbFL2m64Bm.w2UkTrOJnD5weX1apvs34RPg54UcWad56sd\/6K"}}},"SetupGroup":{"setup_complete":true}}', true));
+RuntimeConfig::defaultRuntimeSet(json_decode('[]', true));
 /**&
 @module_content
   uuid: cbb1d654-396f-49fc-b575-6ca687b7899c
@@ -3355,7 +3363,7 @@ class CoreFileInfo extends SplFileInfo
 
         try {
             $this->mime_cache = mime_content_type($path);
-        } catch(Exception) {
+        } catch(Exception $e) {
         }
 
         return $this->mime_cache;
@@ -3428,7 +3436,8 @@ class CoreSearchFilter extends FilterIterator
         $this->needle = $needle;
     }
 
-    public function accept(): bool
+    #[\ReturnTypeWillChange]
+    public function accept()/*: bool*/
     {
         $name = $this
             ->getInnerIterator()
@@ -3517,16 +3526,23 @@ class CoreFSIter extends ArrayIterator
             return;
         }
         try {
+            $fileCls = static::$FILE_CLASS;
             $fsIter = new FilesystemIterator(
                 $path,
                 FilesystemIterator::KEY_AS_PATHNAME
                 | FilesystemIterator::CURRENT_AS_FILEINFO
-                // | FilesystemIterator::SKIP_DOTS
+                | FilesystemIterator::SKIP_DOTS
             );
-            $fsIter->setInfoClass(static::$FILE_CLASS);
-            parent::__construct(
-                iterator_to_array($fsIter)
-            );
+            $fsIter->setInfoClass($fileCls);
+
+            #PHP5 compat
+            $entries = [
+                '.' => new $fileCls($path . '/.'),
+                '..' => new $fileCls($path . '/..')
+            ];
+            $entries += iterator_to_array($fsIter);
+
+            parent::__construct($entries);
 
             $this->ok = true;
         } catch (Exception $e) {
@@ -3571,7 +3587,7 @@ class CoreFSIter extends ArrayIterator
                     return (is_string($a->$call())
                         ? strnatcmp($a->$call(), $b->$call())
                         : $b->$call() - $a->$call());
-                } catch (Exception) {
+                } catch (Exception $e) {
                     return 0;
                 }
             }
@@ -3593,7 +3609,7 @@ class CoreFSIter extends ArrayIterator
                         return -1;
                     if ($bIsDir)
                         return 1;
-                } catch (Exception) {
+                } catch (Exception $e) {
                 }
 
                 return 0;
@@ -3603,8 +3619,10 @@ class CoreFSIter extends ArrayIterator
         return $this;
     }
 
-    public function limit(int $offset = 0, int $limit = 0)/*: ArrayIterator*/
-    {
+    public function limit(
+        /*int*/ $offset = 0,
+        /*int*/ $limit = 0
+    )/*: ArrayIterator*/ {
         if (!$limit || !$this->isOk())
             return $this;
         if ($offset >= count($this))
@@ -3648,7 +3666,7 @@ class CoreFSIter extends ArrayIterator
         foreach ($this as $fileInfo) {
             try {
                 $result += $fileInfo->getSize();
-            } catch (Exception) {
+            } catch (Exception $e) {
             }
         }
 
@@ -4598,14 +4616,16 @@ class TreeViewModule implements UserModuleInterface, MachineModuleInterface
             $data = CoreFSIter::$DEFAULT_SORT_VALUES[$key];
             try {
                 $value = $fileInfo->{$data['display_call']}();
-                if (array_key_exists($key, static::$TREE_DISPLAY_MOD))
-                    $value = static::$TREE_DISPLAY_MOD[$key](
+                if (array_key_exists($key, static::$TREE_DISPLAY_MOD)) {
+                    $call = static::$TREE_DISPLAY_MOD[$key];
+                    $value = $call(
                         $args,
                         $fileInfo,
                         $key,
                         $value
                     );
-            } catch (Exception) {
+                }
+            } catch (Exception $e) {
                 $value = '????';
             }
 
@@ -4805,7 +4825,7 @@ class TreeViewModule implements UserModuleInterface, MachineModuleInterface
 
         try {
             $mime = $fileInfo->getMIME();
-        } catch (RuntimeException) {
+        } catch (RuntimeException $e) {
             $mime = 'unknown';
         }
 
@@ -4886,7 +4906,7 @@ class TreeViewModule implements UserModuleInterface, MachineModuleInterface
             return 
                 $fileInfo->getNormPerms()
                 . ' (' . substr(sprintf('%o', $fileInfo->getPerms()), -4) . ')';
-        } catch (Exception) {
+        } catch (Exception $e) {
             return '(????) ?????????';
         }
     }
@@ -5497,11 +5517,10 @@ $main = function ()/*: void*/
     $args->domainAdd($_POST, 'post');
     $args->domainAdd($_GET, 'get');
 
-    // $page = (isset($args['page']) && is_string($args['page'])
-    //     ? $args['page']
-    //     : 'default'
-    // );
-    $page = 'default';
+    $page = (isset($args['page']) && is_string($args['page'])
+        ? $args['page']
+        : 'default'
+    );
     if (MwChains::invokeFullChain($args, $page) < 0)
         http_response_code(404);
 };
