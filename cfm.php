@@ -420,6 +420,7 @@ trait FormTools
          * - minq - Minimum-equal (>=) value length
          */
         'c_limit' => [self::class, 'specElemLimit'],
+        'c_domain' => [self::class, 'specCheckDomain'],
         'd_json' => [self::class, 'specElemJsonDecode'],
     ];
     /**
@@ -480,10 +481,8 @@ trait FormTools
     )/*: mixed*/ {
         if (!array_key_exists($spec[0], static::$FT_LUT))
             return $default;
-
         if (is_null($default) && array_key_exists('o_default_value', $spec))
             $default = $spec['o_default_value'];
-
         if (!isset($args[$key]))
             return $default;
 
@@ -544,10 +543,8 @@ trait FormTools
 
     protected static function buildAttrs(array $attrs)/*: string*/
     {
-        $attrs = static::escapeData($attrs);
-
         $result = '';
-        foreach ($attrs as $attKey => $attValue) {
+        foreach (static::escapeData($attrs) as $attKey => $attValue) {
             $result .= ' ' . $attKey . '="' . $attValue . '"';
         }
 
@@ -862,11 +859,31 @@ trait FormTools
         }
 
         if (
-            array_key_exists('max', $elemParams) && $n >= $elemParams['max']
+            array_key_exists('eq', $elemParams) && $n != $elemParams['eq']
+            || array_key_exists('max', $elemParams) && $n >= $elemParams['max']
             || array_key_exists('min', $elemParams) && $n <= $elemParams['min']
             || array_key_exists('maxq', $elemParams) && $n > $elemParams['maxq']
             || array_key_exists('minq', $elemParams) && $n < $elemParams['minq']
         )
+            return false;
+
+        $result = $value;
+
+        return true;
+    }
+
+    protected static function specCheckDomain(
+        array $elemParams,
+        ArgsStore $args,
+        /*string*/ $key,
+        /*mixed*/ $value,
+        /*mixed*/ &$result
+    )/*: bool*/ {
+        if (!array_key_exists('from', $elemParams))
+            return false;
+
+        $domain = $args->domainFromOffset($key);
+        if ($domain !== $elemParams['from'])
             return false;
 
         $result = $value;
@@ -991,6 +1008,36 @@ trait FormTools
         /*mixed*/ &$result
     )/*: mixed*/ {
         return false;
+    }
+}
+
+trait SecurityTools
+{
+    protected static function getRandBytes(/*int*/ $n)/*: string*/
+    {
+        $result = '';
+        if (PHP_VERSION_ID < 70000) {
+            mt_srand();
+            for ($i = 0; $i < $n; $i++)
+                $result .= dechex(mt_rand(0, 255));
+        } else {
+            $result = bin2hex(random_bytes($n));
+        }
+
+        return $result;
+    }
+
+    public static function hashCompare(/*string*/ $a, /*string*/ $b)/*: bool*/
+    {
+        $len = strlen($a);
+        if ($len !== strlen($b))
+            return false;
+
+        $status = 0;
+        for ($i = 0; $i < $len; $i++)
+            $status |= ord($a[$i]) ^ ord($b[$i]);
+
+        return $status === 0;
     }
 }
 
@@ -1332,14 +1379,21 @@ class ModStack implements Iterator
         return $this->rlm;
     }
 
-    public function targetUUID()/*: string*/
+    public function targetUUID()/*: ?string*/
     {
+        if (empty($this->stack))
+            return;
+
         return $this->stack[0];
     }
 
-    public function getTarget()/*: string*/
+    public function getTarget()/*: ?string*/
     {
-        return ModIndex::$TI[$this->targetUUID()];
+        $uuid = $this->targetUUID();
+        if (is_null($uuid))
+            return;
+
+        return ModIndex::$TI[$uuid];
     }
 
     public function targetArgs(ArgsStore $args)/*: ?array*/
@@ -1368,7 +1422,7 @@ class ModStack implements Iterator
         );
     }
 
-    protected function argsByUUID(ArgsStore $args, /*string*/ $uuid)/*: ?array*/
+    protected function argsByUUID(ArgsStore $args, /*?string*/ $uuid)/*: ?array*/
     {
         if (!array_key_exists($uuid, $this->procStore))
             return;
@@ -1429,11 +1483,11 @@ class ModIndex
 
     // Top-Level Modules
     public static $TLM = [];
-    // Parents Tree
+    // Parents List
     public static $PL = [];
     // Total index
     public static $TI = [
-        SetUserProcModule::MOD_UUID => SetUserProcModule::class,
+        SetUserStackModule::MOD_UUID => SetUserStackModule::class,
     ];
 
     public static function addParent(
@@ -1442,7 +1496,6 @@ class ModIndex
     )/*: int*/ {
         if (!array_key_exists($uuid, static::$TI))
             return -2;
-
         if (!array_key_exists($uuid, static::$PL))
             static::$PL[$uuid] = [];
 
@@ -1558,7 +1611,7 @@ class ModIndex
 class MwChains implements MiddlewareInterface
 {
     public static $GLOBAL_CHAIN = [
-        // [SetUserProcModule::class, []],
+        // [SetUserStackModule::class, []],
         // [MwChains::class, [
         //     'chain' => [
         //         [ProcessRqMw::class, []],
@@ -1661,7 +1714,7 @@ class MwChains implements MiddlewareInterface
     }
 }
 
-class SetUserProcModule implements BasicModuleInterface, MiddlewareInterface
+class SetUserStackModule implements BasicModuleInterface, MiddlewareInterface
 {
     use FormTools;
 
@@ -2019,17 +2072,26 @@ class Infuser
         /*string*/ $sourcePath,
         /*string*/ $targetPath
     )/*: array*/ {
+        $n = 0;
+        $result = [];
         foreach (static::defuse($args, $sourcePath) as $key => $data) {
-            $targetFile = $targetPath . DIRECTORY_SEPARATOR . $key . '.php';
+            $targetFile =
+                $targetPath
+                . DIRECTORY_SEPARATOR
+                . $n  . '_' . $key . '.php';
             $handle = fopen($targetFile , 'wb');
             if ($handle === false)
-                continue;
+                throw new Exception('Unable to open file to write mod');
 
             foreach (static::infuseGen([$data]) as $line)
                 fwrite($handle, $line);
 
+            $n++;
+            $result[] = $targetFile;
             fclose($handle);
         }
+
+        return $result;
     }
 
     public static function infuseGen(array $content = [])/*: Generator*/
@@ -2527,6 +2589,111 @@ class RuntimeConfigFuser implements BasicFuserInterface
 Infuser::cmdAdd(RuntimeConfigFuser::class);
 /**&
 @module_content
+  uuid: cbb1d654-396f-49fc-b575-6ca687b7899c
+  name: Core Setup
+  verm: 1
+  author: trashlogic
+  license: AGPL-3.0-only
+&*/
+class SetupGroup extends GroupModule implements
+    UserModuleInterface,
+    ConfigProviderInterface
+{
+    const MOD_UUID = 'd642a9dc-e298-483b-adc4-849d925b6287';
+    const MOD_NAME = 'Setup';
+    const MOD_PARENT = null;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        if ($args->cfgVGet(static::class, 'setup_complete'))
+            return ['status' => -1, 'msg' => 'Already setted up'];
+
+        return ['status' => 0];
+    }
+
+    public static function configGet()/*: array*/
+    {
+        return [
+            'setup_complete' => false,
+        ];
+    }
+}
+
+class SetupModule extends PlainGroupModule implements
+    UserModuleInterface,
+    MiddlewareInterface
+{
+    use FormTools;
+
+    const MOD_UUID = 'cb990db7-99ef-4aa6-adee-6e1b3a959f19';
+    const MOD_NAME = 'Setup';
+    const MOD_PARENT = null;
+
+    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
+    {
+        if (!$args->cfgVGet(SetupGroup::class, 'setup_complete')) {
+            $args->getStack()->resetFromUUID(static::MOD_UUID);
+            return false;
+        }
+
+        return true;
+    }
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        if ($args->cfgVGet(SetupGroup::class, 'setup_complete'))
+            return ['status' => -1, 'msg' => 'Already setted up'];
+
+        foreach (ModIndex::getParents(SetupGroup::MOD_UUID) as $uuid => $cls) {
+            $result = ModIndex::fastCall($cls, $args);
+
+            if ($result['status'] !== 0)
+                return $result;
+        }
+
+        $args->cfgVSet(SetupGroup::class, 'setup_complete', true, true);
+
+        $result = $args->cfgIGet()->dumpToPart($args->pathCurrent());
+        if ($result['status'] < 0)
+            return ['status' => -3, 'msg' => 'Unable to complete setup'];
+
+        return ['status' => 0];
+    }
+
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+        return SetupGroup::form($args);
+    }
+
+    public static function display(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
+        if ($curr_args['status'] < 0)
+            return static::errorGet($curr_args);
+        if ($curr_args['status'] === 1)
+            return;
+
+        http_response_code(303);
+        header('Location: ');
+
+        return
+            '<border>'
+                . 'Installation completed successfully. Reload the page'
+            . '</border>';
+    }
+}
+
+ModIndex::addModule(SetupModule::class);
+ModIndex::addModule(SetupGroup::class);
+RuntimeConfig::addDefault(SetupGroup::class);
+/**&
+@module_content
   uuid: b397d6d1-68bb-4e8c-88ce-d787f43f117c
   name: Current version
   verm: 1
@@ -2571,6 +2738,150 @@ class Version implements MachineModuleInterface, AlterModuleInterface
 ModIndex::addModule(Version::class);
 /**&
 @module_content
+  uuid: 3bb19b4f-c49b-46cf-9fb0-09e3bc68c73f
+  name: CSRF Form protection
+  verm: 1
+  author: trashlogic
+  license: AGPL-3.0-only
+  required: 1
+&*/
+class FormProtectModule implements
+    UserModuleInterface,
+    MiddlewareInterface,
+    GadgetModuleInterface,
+    ConfigProviderInterface
+{
+    use FormTools;
+    use SecurityTools;
+
+    const MOD_UUID = '8f26af5a-2a93-40fa-9309-54fccaeb0635';
+    const MOD_NAME = 'CSRF Form protection';
+    const MOD_PARENT = null;
+
+    public static $FORM_FIELDS = [
+        'form_key' => [
+            't_str',
+            'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
+            'c_limit' => [
+                'mode' => 'len',
+                'eq' => 64,
+            ],
+            'o_field_schema' => [
+                'type' => 'hidden',
+            ],
+            'o_prevent_export' => ['display', 'preserve'],
+        ],
+    ];
+    public static $HASH_ALGO = 'sha256';
+
+    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
+    {
+        $cookieExists = array_key_exists('action_nonce', $_COOKIE);
+        if (!$cookieExists) {
+            $nonce = static::getRandBytes(8);
+            setcookie('action_nonce', $nonce, 0, '/');
+        } else {
+            $nonce = $_COOKIE['action_nonce'];
+        }
+
+        $secret = $args->cfgVGet(static::class, 'secret');
+        $currentKey = hash_hmac(static::$HASH_ALGO, $nonce, $secret);
+        $args->cfgVSet(static::class, 'current_key', $currentKey);
+
+        if (!array_key_exists(static::MOD_UUID, ModIndex::$PL))
+            return true;
+
+        $uuid = $args->getStack()->targetUUID();
+        if (!in_array($uuid, ModIndex::$PL[static::MOD_UUID]))
+            return true;
+
+        if (!$cookieExists) {
+            $args->getStack()->resetFromUUID(static::MOD_UUID);
+            return false;
+        }
+
+        $passedKey = static::valueGet($args, 'form_key', '');
+        if (!static::hashCompare($currentKey, $passedKey)) {
+            $args->getStack()->resetFromUUID(static::MOD_UUID);
+            return false;
+        }
+
+        $nonce = static::getRandBytes(8);
+        $currentKey = hash_hmac(static::$HASH_ALGO, $nonce, $secret);
+
+        setcookie('action_nonce', $nonce, 0, '/');
+        $args->cfgVSet(static::class, 'current_key', $currentKey);
+
+        return true;
+    }
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        return ['status' => 0];
+    }
+
+    public static function gadget(ArgsStore $args)/*: ?string*/
+    {
+        $key = $args->cfgVGet(static::class, 'current_key');
+
+        return static::fieldGet($args, 'form_key', [], ['{value}' => $key]);
+    }
+
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+        return
+            '<border style="text-align: center;">'
+                . 'Form is outdated. Reload the page'
+            . '</border>';
+    }
+
+    public static function display(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
+    }
+
+    public static function configGet()/*: array*/
+    {
+        return [
+            'current_key' => null,
+            'secret' => null,
+        ];
+    }
+}
+
+class FormProtectSetupModule implements BasicModuleInterface
+{
+    use SecurityTools;
+
+    const MOD_UUID = '8793ca41-4049-445c-a57b-625583b3f47a';
+    const MOD_NAME = 'Form token secret Setup';
+    const MOD_PARENT = SetupGroup::MOD_UUID;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        $args->cfgVSet(
+            FormProtectModule::class,
+            'secret',
+            static::getRandBytes(32),
+            true
+        );
+
+        return ['status' => 0];
+    }
+}
+
+ModIndex::addModule(FormProtectModule::class);
+ModIndex::addModule(FormProtectSetupModule::class);
+RuntimeConfig::addDefault(FormProtectModule::class);
+/**&
+@module_content
   uuid: 2dd9d09b-60c9-4a4c-bdec-c11aeeb88348
   name: Filesystem core
   verm: 1
@@ -2578,13 +2889,25 @@ ModIndex::addModule(Version::class);
   license: AGPL-3.0-only
   required: 1
 &*/
+trait CheckPathName
+{
+    protected static function checkPathName(/*string*/ $name)/*: bool*/
+    {
+        return !(
+            strlen($name) == 0
+            || $name === '.'
+            || $name === '..'
+            || stripos($name, '/') !== false
+            || stripos($name, '\\') !== false
+        );
+    }
+}
+
 trait CoreSizeConv
 {
-    public function getNormSize()/*: double*/
+    protected static function normalizeSize(/*int*/ $size)/*: string*/
     {
-        $units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'];
-        
-        $size = $this->getSize();
+        $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
         $n = 0;
         while ($size > 1024) {
             $size /= 1024;
@@ -2625,16 +2948,9 @@ class CoreFileInfo extends SplFileInfo
 
     public function getNormSize()/*: double*/
     {
-        $units = ['B', 'kB', 'MB', 'GB', 'TB', 'PB', 'EB'];
-        
-        $size = $this->getSize();
-        $n = 0;
-        while ($size > 1024) {
-            $size /= 1024;
-            $n++;
-        }
-
-        return round($size, 1) . $units[$n];
+        return static::normalizeSize(
+            $this->getSize()
+        );
     }
 
     public function getNormPerms()/*: string*/
@@ -2776,10 +3092,6 @@ class CoreFSIter extends ArrayIterator
             $this->okReason = 'Unable to traverse non-directory';
             return;
         }
-        if (!file_exists($path)) {
-            $this->okReason = 'Invalid path';
-            return;
-        }
         if (!is_readable($path)) {
             $this->okReason = 'Permission denied. Unable to open file or directory';
             return;
@@ -2801,6 +3113,13 @@ class CoreFSIter extends ArrayIterator
             $this->ok = false;
             $this->okReason = $e->getMessage();
         }
+    }
+
+    public function getNormSize()/*: double*/
+    {
+        return static::normalizeSize(
+            $this->getSize()
+        );
     }
 
     public function isOk()/*: bool*/
@@ -2934,15 +3253,6 @@ class FileViewDeleteModule implements UserModuleInterface
     const MOD_NAME = 'Delete file';
     const MOD_PARENT = FileViewModule::MOD_UUID;
 
-    public static $FORM_FIELDS = [
-        'delete_confirm' => [
-            't_bool',
-            'c_not_empty' => [],
-            'o_default_value' => false,
-            'o_prevent_export' => ['preserve', 'display'],
-        ],
-    ];
-
     public static function process(
         ArgsStore $args,
         array $prnt_args = []
@@ -2950,21 +3260,21 @@ class FileViewDeleteModule implements UserModuleInterface
         if ($prnt_args['status'] < 0)
             return $prnt_args;
 
-        $delete = static::valueGet($args, 'delete_confirm');
-        if (!$delete)
-            return ['status' => 0, 'deleted' => $delete];
-
         if (!unlink($prnt_args['path']))
             return ['status' => -3, 'msg' => 'Unable to delete file'];
 
         $args->getStack()->reProcess($args, FileViewModule::MOD_UUID);
 
-        return ['status' => 0, 'deleted' => $delete];
+        return ['status' => 0];
     }
 
     public static function form(ArgsStore $args)/*: ?string*/
     {
-        return static::submitGet('Delete');
+        return static::buttonGet('proc', static::MOD_UUID, 'Delete', [
+            'style' => 'border-color: red;',
+            'title' => 'This operation is irreversable',
+            'onclick' => 'return confirm(\'Definitely delete current directory?\nCurrent folder and ITS CONTENT will be deleted\');'
+        ]);
     }
 
     public static function display(
@@ -2975,10 +3285,7 @@ class FileViewDeleteModule implements UserModuleInterface
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args, '', true);
 
-        if ($curr_args['deleted'])
-            return 'File successfully deleted';
-        else
-            return static::buttonGet('delete_confirm', 1, 'Definitely delete');
+        return 'File successfully deleted';
     }
 }
 
@@ -3000,11 +3307,23 @@ class FileDownloadModule implements
         return $prnt_args;
     }
 
-    public static function form(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: ?string*/ {
-        return static::submitGet('Download');
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+        // :\
+        $path = FileViewModule::valueGet($args, 'file');
+
+        return
+            '<a '
+                . 'href="?'
+                    .  http_build_query([
+                        'proc' => 'download',
+                        'file' => $path
+                    ])
+                . '" '
+                . 'target="_blank" '
+            . '>'
+                . '<button type="button">Download</button>'
+            . '</a>';
     }
 
     public static function display(
@@ -3152,7 +3471,7 @@ class FileDownloadModule implements
     }
 }
 
-class FileViewModule implements UserModuleInterface
+class FileViewModule extends PlainGroupModule implements UserModuleInterface
 {
     use FormTools;
 
@@ -3185,9 +3504,12 @@ class FileViewModule implements UserModuleInterface
     )/*: array*/ {
         $path = static::valueGet($args, 'file');
         if (!is_file($path))
-            return [ 'status' => -1, 'msg' => 'File not found'];
+            return ['status' => -1, 'msg' => 'File not found'];
         if (!is_readable($path))
-            return [ 'status' => -2, 'msg' => 'Permission denied. Unable to read file'];
+            return [
+                'status' => -2,
+                'msg' => 'Permission denied. Unable to read file'
+            ];
 
         $file = new CoreFileInfo($path);
 
@@ -3231,33 +3553,22 @@ class FileViewModule implements UserModuleInterface
         $moduleResult = $args->getStack()->nextDisplay($args, []);
 
         return
+            // $args->getStack()->nextDisplay($args, [])
+            // parent::display($args, $curr_args, $prnt_args)
             ($moduleResult
                 ? '<border class="result">'
                     . $moduleResult
                 . '</border>'
                 : ''
             )
-            . '<a '
-                . 'href="?'
-                    .  http_build_query([
-                        'proc' => 'download',
-                        'file' => $curr_args['path']
-                    ])
-                . '" '
-                . 'target="_blank" '
-            . '>'
-                . '<button type="button">Download</button>'
-            . '</a>'
-            . '<button type="submit" name="proc" value="delete">'
-                . 'Delete'
-            . '</button>'
-            . '<input disabled="" type="text" name="file_new_name" placeholder="New name">'
-            . '<button disabled="" type="submit" name="" value="rename">'
-                . 'Rename'
-            . '</button>'
-            . '<button disabled="" type="submit" name="" value="copy">'
-                . 'Move/Copy'
-            . '</button>';
+            . parent::form($args);
+            // . '<input disabled="" type="text" name="file_new_name" placeholder="New name">'
+            // . '<button disabled="" type="submit" name="" value="rename">'
+            //     . 'Rename'
+            // . '</button>'
+            // . '<button disabled="" type="submit" name="" value="copy">'
+            //     . 'Move/Copy'
+            // . '</button>';
     }
 }
 
@@ -3273,20 +3584,6 @@ ModIndex::addModule(FileViewDeleteModule::class);
   license: AGPL-3.0-only
   required: 1
 &*/
-trait CheckPathName
-{
-    protected static function checkPathName(/*string*/ $name)/*: bool*/
-    {
-        return !(
-            strlen($name) == 0
-            || $name === '.'
-            || $name === '..'
-            || stripos('/', $name) !== false
-            || stripos('\\', $name) !== false
-        );
-    }
-}
-
 class TreeCreateFileModule implements UserModuleInterface
 {
     use FormTools;
@@ -3455,25 +3752,12 @@ class TreeDeleteDirectoryModule implements UserModuleInterface
     const MOD_NAME = 'Delete current directory';
     const MOD_PARENT = TreeUnsafeOpsGroup::MOD_UUID;
 
-    public static $FORM_FIELDS = [
-        'delete_confirm' => [
-            't_bool',
-            'c_not_empty' => [],
-            'o_default_value' => false,
-            'o_prevent_export' => ['preserve', 'display'],
-        ],
-    ];
-    
     public static function process(
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
         if ($prnt_args['status'] < 0)
             return $prnt_args;
-
-        // $delete = static::valueGet($args, 'delete_confirm');
-        // if (!$delete)
-        //     return ['status' => 0, 'deleted' => $delete];
 
         if (!static::deleteFolderContent($prnt_args['path']))
             return ['status' => -3, 'msg' => 'Unable to fully delete folder'];
@@ -3500,12 +3784,7 @@ class TreeDeleteDirectoryModule implements UserModuleInterface
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args, '', true);
 
-        // if ($curr_args['deleted'])
         return 'Folder successfully deleted';
-        // else
-            // return static::buttonGet('delete_confirm', 1, 'Definitely delete', [
-                // 'onclick' => 'event.stopPropagation();'
-            // ]);
     }
 
     public static function deleteFolderContent(/*string*/ $path)/*: bool*/
@@ -3731,6 +4010,7 @@ class TreeUnsafeOpsGroup extends HiddenGroupModule implements UserModuleInterfac
 class TreeViewModule implements UserModuleInterface, MachineModuleInterface
 {
     use FormTools;
+    use CoreSizeConv;
 
     const MOD_UUID = '8bf01fa7-207c-4cfd-aad8-df9de6ddab21';
     const MOD_NAME = 'File Tree View';
@@ -4008,7 +4288,12 @@ class TreeViewModule implements UserModuleInterface, MachineModuleInterface
                         . ceil($count / $limit)
                     : '1 / 1'
                 )
-                . ' (' . $count . ' or ' . $curr_args['norm_size'] . ')'
+                . ' (' . $count . ' or ' . $curr_args['norm_size'] . ') '
+                .  (($freeSpace = disk_free_space($curr_args['path'])) === false
+                    ? '---'
+                    : static::normalizeSize($freeSpace)
+                )
+                . ' Free'
             . '</border>';
         $mOffsetBtn = static::buttonGet('offset', $offset - $limit, '◀', (
             $limit && $offset > 0
@@ -4263,6 +4548,7 @@ class SetupFirstUserModule implements UserModuleInterface
         'new_username' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 4,
@@ -4272,6 +4558,7 @@ class SetupFirstUserModule implements UserModuleInterface
                 'type' => 'text',
                 'placeholder' => 'username',
                 'attrs' => [
+                    'autocomplete' => 'off',
                     'minlength' => 4,
                     'maxlength' => 12,
                 ],
@@ -4280,6 +4567,7 @@ class SetupFirstUserModule implements UserModuleInterface
         'new_password' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 8,
@@ -4385,6 +4673,7 @@ class SetRemoveUserModule implements UserModuleInterface
         'del_username' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 4,
@@ -4394,6 +4683,7 @@ class SetRemoveUserModule implements UserModuleInterface
                 'type' => 'text',
                 'placeholder' => 'username',
                 'attrs' => [
+                    'autocomplete' => 'off',
                     'minlength' => 4,
                     'maxlength' => 12,
                 ],
@@ -4488,12 +4778,12 @@ ModIndex::addModule(SetupFirstUserModule::class);
   license: AGPL-3.0-only
   required: 1
 &*/
-class Main implements UserModuleInterface, ConfigProviderInterface
+class CFMMain implements UserModuleInterface, ConfigProviderInterface
 {
     use FormTools;
 
     const MOD_UUID = 'e901ceb9-9853-4999-aa4c-45b58c50c19f';
-    const MOD_NAME = 'Main';
+    const MOD_NAME = 'CFM Main';
     const MOD_PARENT = null;
 
     public static function process(
@@ -4749,10 +5039,8 @@ class Main implements UserModuleInterface, ConfigProviderInterface
 
         return
             '<border class="no_border">'
-                // . '<div>'
-                    . $stack->form($args)
-                    . $stack->display($args, [])
-                // . '</div>'
+                . $stack->form($args)
+                . $stack->display($args, [])
             . '</border>';
     }
 
@@ -4765,8 +5053,8 @@ class Main implements UserModuleInterface, ConfigProviderInterface
     }
 }
 
-ModIndex::addModule(Main::class);
-RuntimeConfig::addDefault(Main::class);
+ModIndex::addModule(CFMMain::class);
+RuntimeConfig::addDefault(CFMMain::class);
 /**&
 @module_content
   uuid: a11190f6-fee2-4a5b-9687-8edd9c3e1b5b
@@ -4781,6 +5069,7 @@ class CoreAuthenticationModule implements
     MiddlewareInterface,
     ConfigProviderInterface
 {
+    use SecurityTools;
     use FormTools;
 
     const MOD_UUID = '21bd5bf0-1bf9-4d87-bce1-734d5426b7fb';
@@ -4791,6 +5080,7 @@ class CoreAuthenticationModule implements
         'ca_username' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 4,
@@ -4800,6 +5090,7 @@ class CoreAuthenticationModule implements
                 'type' => 'text',
                 'placeholder' => 'username',
                 'attrs' => [
+                    'autocomplete' => 'off',
                     'minlength' => 4,
                     'maxlength' => 12,
                 ],
@@ -4808,6 +5099,7 @@ class CoreAuthenticationModule implements
         'ca_password' => [
             't_str',
             'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
             'c_limit' => [
                 'mode' => 'len',
                 'minq' => 8,
@@ -4842,6 +5134,7 @@ class CoreAuthenticationModule implements
 
         $secret = $args->cfgVGet(static::class, 'secret');
         $username = $_COOKIE['current_user'];
+
         $currentAuthorized = false;
         $currentKey = static::createCurrentKey(
             $secret,
@@ -4887,20 +5180,9 @@ class CoreAuthenticationModule implements
 
         $args->cfgVSet(static::class, 'current_user', $username);
 
+        // ini_set('open_basedir', getcwd());
+
         return true;
-    }
-
-    public static function hashCompare(/*string*/ $a, /*string*/ $b)
-    {
-        $len = strlen($a);
-        if ($len !== strlen($b))
-            return false;
-
-        $status = 0;
-        for ($i = 0; $i < $len; $i++)
-            $status |= ord($a[$i]) ^ ord($b[$i]);
-
-        return $status === 0;
     }
 
     public static function createKey(
@@ -4961,7 +5243,7 @@ class CoreAuthenticationModule implements
         if (!password_verify($password, $current['pwd_hash']))
             return ['status' => -1, 'msg' => 'Invalid username/password'];
 
-        $nonce = dechex(mt_rand(0, PHP_INT_MAX));
+        $nonce = static::getRandBytes(8);
         $secret = $args->cfgVGet(static::class, 'secret');
         $currentKey = static::createCurrentKey($secret, $username, $nonce);
         $persistantKey = static::createPersistantKey($secret, $username, $nonce);
@@ -5001,16 +5283,25 @@ class CoreAuthenticationModule implements
         setcookie('key_nonce', $curr_args['key_nonce'], $pTime, '/');
         setcookie('current_key', $curr_args['current_key'], $cTime, '/');
         setcookie('persistant_key', $curr_args['persistant_key'], $pTime, '/');
-        
+
         http_response_code(303);
         header('Location: ');
 
         return '<border>Successfull authorization. Reload the page</border>';
     }
 
-    public static function currentUser(ArgsStore $args)/*: array*/
+    public static function currentUser(ArgsStore $args)/*: ?string*/
     {
         return $args->cfgVGet(static::class, 'current_user');
+    }
+
+    public static function currentUserData(ArgsStore $args)/*: ?array*/
+    {
+        $username = static::currentUser($args);
+        if (is_null($username))
+            return;
+
+        $args->cfgVGet(static::class, 'users')[$username];
     }
 
     public static function listUsers(ArgsStore $args)/*: array*/
@@ -5035,12 +5326,9 @@ class CoreAuthenticationModule implements
         $users[$username] = $user;
 
         if (!$args->cfgVSet(static::class, 'users', $users, true))
-            return ['status' => -2, 'msg' => 'Unable to add new user'];
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
 
-        return [
-            'status' => 0,
-            'user' => $user,
-        ];
+        return ['status' => 0, 'user' => $user];
     }
 
     public static function delUser(
@@ -5052,11 +5340,26 @@ class CoreAuthenticationModule implements
             return ['status' => -1, 'msg' => 'Unknown user'];
 
         unset($users[$username]);
-        
+
         if (!$args->cfgVSet(static::class, 'users', $users, true))
-            return ['status' => -2, 'msg' => 'Unable to remove user'];
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
 
         return ['status' => 0];
+    }
+
+    public static function updUser(
+        ArgsStore $args,
+        /*string*/ $username,
+        /*array*/ $data
+    )/*: array*/ {
+        $users = $args->cfgVGet(static::class, 'users');
+        if (!array_key_exists($username, $users))
+            return ['status' => -1, 'msg' => 'Unknown user'];
+
+        $users[$username] = $data;
+
+        if (!$args->cfgVSet(static::class, 'users', $users, true))
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
     }
 
     public static function configGet()/*: array*/
@@ -5143,6 +5446,8 @@ class CoreLogoutModule implements
 
 class SetupSessionSecretModule implements BasicModuleInterface
 {
+    use SecurityTools;
+
     const MOD_UUID = '7ae13f6b-7e94-4697-b31d-9039a5772831';
     const MOD_NAME = 'Setup Session Secret';
     const MOD_PARENT = SetupGroup::MOD_UUID;
@@ -5151,20 +5456,19 @@ class SetupSessionSecretModule implements BasicModuleInterface
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
-        $secret = '';
-        for ($i = 0; $i < 4; $i++)
-            $secret .= dechex(mt_rand());
-
-        $secret = hash('sha256', $secret);
-
-        $args->cfgVSet(CoreAuthenticationModule::class, 'secret', $secret, true);
+        $args->cfgVSet(
+            CoreAuthenticationModule::class,
+            'secret',
+            static::getRandBytes(32),
+            true
+        );
 
         return ['status' => 0];
     }
 }
 
 ModIndex::addModule(CoreAuthenticationModule::class);
-ModIndex::addModule(CoreLogoutModule::class, false, [Main::MOD_UUID]);
+ModIndex::addModule(CoreLogoutModule::class);
 ModIndex::addModule(SetupSessionSecretModule::class);
 RuntimeConfig::addDefault(CoreAuthenticationModule::class);
 /**&
@@ -5189,10 +5493,11 @@ $main = function ()/*: void*/
     $args->domainAdd($_POST, 'post');
     $args->domainAdd($_GET, 'get');
 
-    $page = (isset($args['page'])
-        ? $args['page']
-        : 'default'
-    );
+    // $page = (isset($args['page']) && is_string($args['page'])
+    //     ? $args['page']
+    //     : 'default'
+    // );
+    $page = 'default';
     if (MwChains::invokeFullChain($args, $page) < 0)
         http_response_code(404);
 };
@@ -5224,7 +5529,7 @@ MwChains::$GLOBAL_CHAIN = [
     [MwChains::class, [
         'chain' => [
             [RuntimeConfig::class, [
-                Main::class => [
+                CFMMain::class => [
                     'show_menu' => false,
                     'show_cred' => false,
                 ],
@@ -5232,12 +5537,12 @@ MwChains::$GLOBAL_CHAIN = [
             [SetupModule::class, []],
             [CoreAuthenticationModule::class, []],
             [RuntimeConfig::class, [
-                Main::class => [
+                CFMMain::class => [
                     'show_menu' => true,
                     'show_cred' => true,
                 ],
             ]],
-            [SetUserProcModule::class, [
+            [SetUserStackModule::class, [
                 'alias' => [
                     'view' => FileViewModule::MOD_UUID,
                     'download' => FileDownloadModule::MOD_UUID,
@@ -5250,6 +5555,7 @@ MwChains::$GLOBAL_CHAIN = [
     ]],
     [MwChains::class, [
         'chain' => [
+            [FormProtectModule::class, []],
             [ProcessRqMw::class, []],
         ],
         'resolver' => [MwChains::class, 'resolveTrue'],
@@ -5260,10 +5566,25 @@ MwChains::$GLOBAL_CHAIN = [
 ];
 MwChains::$CHAINS = [
     'default' => [
-        [SetRLMMw::class, ['rlm_uuid' => Main::MOD_UUID]],
+        [SetRLMMw::class, ['rlm_uuid' => CFMMain::MOD_UUID]],
         [UserDisplayMw::class, []],
     ],
 ];
+
+ModIndex::addParent(CoreLogoutModule::class, CFMMain::MOD_UUID);
+ModIndex::addParent(
+    FormProtectModule::class,
+    CFMMain::MOD_UUID
+);
+
+ModIndex::addParent(
+    FileViewDeleteModule::class,
+    FormProtectModule::MOD_UUID
+);
+ModIndex::addParent(
+    TreeDeleteDirectoryModule::class,
+    FormProtectModule::MOD_UUID
+);
 /**&
 @runtime_config
 &*/

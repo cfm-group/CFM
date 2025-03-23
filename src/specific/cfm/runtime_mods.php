@@ -16,7 +16,7 @@ return [
     'src/specific/cfm/mod_main.php' => [],
     'src/mod_auth.php' => [],
     'src/specific/cfm/mod_init.php' => [],
-    'src/specific/cfm/1.0.0/mod_config.php' => [],
+    'src/specific/cfm/mod_config.php' => [],
     'src/mod_rtc_bundle.php' => [],
     'src/specific/mod_init_exec.php' => [],
 ];
