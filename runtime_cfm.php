@@ -10,9 +10,9 @@
   required: 1
 &*/
 
-require('src/mod_microcore.php');
-require('src/mod_infuser.php');
-require('src/mod_rt_config.php');
+require('src/core/mod_microcore.php');
+require('src/core/mod_infuser.php');
+require('src/core/mod_rt_config.php');
 
 /**&
 @runtime_config
@@ -29,7 +29,7 @@ require('src/mod_rt_config.php');
 &*/
 
 $root = '.';
-$modules = require_once('src/specific/cfm/1.0.0/runtime_mods.php');
+$modules = require_once('src/specific/cfm/runtime_mods.php');
 
 foreach ($modules as $path => $mods) {
     require_once($root . DIRECTORY_SEPARATOR . $path);
