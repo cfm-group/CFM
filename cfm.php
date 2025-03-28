@@ -2601,6 +2601,35 @@ Infuser::addCmd(RuntimeConfigFuser::class);
 RuntimeConfig::defaultRuntimeSet(json_decode('[]', true));
 /**&
 @module_content
+  uuid: c5748ec8-00e4-4b4d-bd49-f8a04e85fa52
+  id: init
+  name: Init
+  verm: 1
+  author: trashlogic
+  license: AGPL-3.0-only
+  required: 1
+&*/
+$main = function ()/*: void*/
+{
+    $args = new ArgsStore();
+
+    $rtcfg = new RuntimeConfig($args);
+    $smmgr = new ServiceManager($args, ModIndex::$TI);
+    $mstck = new ModStack($args);
+
+    $args->domainAdd($_FILES, 'files');
+    $args->domainAdd($_POST, 'post');
+    $args->domainAdd($_GET, 'get');
+
+    $page = (isset($args['page']) && is_string($args['page'])
+        ? $args['page']
+        : 'default'
+    );
+    if (MwChains::invokeFullChain($args, $page) < 0)
+        http_response_code(404);
+};
+/**&
+@module_content
   uuid: cbb1d654-396f-49fc-b575-6ca687b7899c
   name: Core Setup
   verm: 1
@@ -3526,16 +3555,16 @@ class CoreFSIter extends ArrayIterator
             return;
         }
         try {
-            $fileCls = static::$FILE_CLASS;
             $fsIter = new FilesystemIterator(
                 $path,
                 FilesystemIterator::KEY_AS_PATHNAME
                 | FilesystemIterator::CURRENT_AS_FILEINFO
                 | FilesystemIterator::SKIP_DOTS
             );
-            $fsIter->setInfoClass($fileCls);
+            $fsIter->setInfoClass(static::$FILE_CLASS);
 
             #PHP5 compat
+            $fileCls = static::$FILE_CLASS;
             $entries = [
                 '.' => new $fileCls($path . '/.'),
                 '..' => new $fileCls($path . '/..')
@@ -5495,35 +5524,6 @@ class CFMMain implements UserModuleInterface, ConfigProviderInterface
 
 ModIndex::addModule(CFMMain::class);
 RuntimeConfig::addDefault(CFMMain::class);
-/**&
-@module_content
-  uuid: c5748ec8-00e4-4b4d-bd49-f8a04e85fa52
-  id: init
-  name: Init
-  verm: 1
-  author: trashlogic
-  license: AGPL-3.0-only
-  required: 1
-&*/
-$main = function ()/*: void*/
-{
-    $args = new ArgsStore();
-
-    $rtcfg = new RuntimeConfig($args);
-    $smmgr = new ServiceManager($args, ModIndex::$TI);
-    $mstck = new ModStack($args);
-
-    $args->domainAdd($_FILES, 'files');
-    $args->domainAdd($_POST, 'post');
-    $args->domainAdd($_GET, 'get');
-
-    $page = (isset($args['page']) && is_string($args['page'])
-        ? $args['page']
-        : 'default'
-    );
-    if (MwChains::invokeFullChain($args, $page) < 0)
-        http_response_code(404);
-};
 /**&
 @module_content
   uuid: 78ba657f-42cd-48ca-a710-62b6a2e06080

@@ -1,62 +1,58 @@
 # Crystal File Manager
 
-Advanced file manager that fits in single PHP file.
+Продвинутый файловый менеджер, умещающийся в единственный PHP-файле.
 
-*a.k.a. Server file manager*
+*a.k.a. Файловый менеджер для сервера*
 
 [Ru](README.ru.md) | [En](README.md)
 
 [GitFlick](https://gitflic.ru/project/consensus/cfm) | [GitHub](https://github.com/cfm-group/CFM)
 
-# Functionality
- - **Basic Operations** - Upload/move/delete files, create folders, etc.
- - **Authorisation** - Ability to create and manage user accounts
- - **Easy configuration** - All configuration is done through a graphical interface
- - **Search, sorting and pagination** - Thousands of files won't get in the way of a comfortable workflow.
+# Функциональность
+ - **Базовые операции** - Загрузка/перемещение/удаление файлов, создание папок и т.д.
+ - **Авторизация** - Возможность создания и управления аккаунтами пользователей
+ - **Простая настройка** - Вся настройка происходит через графический интерфейс
+ - **Поиск, сортировка и пагинация** - Тысячи файлов не станут препятствием комфортной работе
 
- # Key Features
- - **Free Licence** (AGPLv3)
- - **No dependencies** (Only built-in PHP functions)
- - **Most of the functionality works without JavaScript**
- - **Modular architecture** (Easy to write plugins)
- - **Delta Updates**
- - **Adapted for mobile devices**
- - **Partial download support**
- - **Availability of Json API**
+# Ключевые особенности
+ - **Свободная лицензия** (AGPLv3)
+ - **Никаких зависимостей** (Только встроенные в PHP функции)
+ - **Большая часть функциональность работает без JavaScript**
+ - **Модульная архитектура** (Простота написания плагинов)
+ - **Возможность дельта-обновлений**
+ - **Адаптированность для мобильных устройств**
+ - **Поддержка частичной загруки**
+ - **Наличие Json API**
 
-# Requirements
+# Требования
  - PHP >= 5.5.0
- - Extensions(Built-in): json, iconv, hash
+ - Расширения(Присутствуют по умолчанию): json, iconv, hash
 
-# Installation and Use
-## The project is in the development phase
+# Установка и использование
+## Проект находится на этапе разработки
 ```bash
 wget https://raw.githubusercontent.com/trashlogic/CFM/refs/heads/master/cfm.php
 php -S localhost:8080
 ```
-Open `http://localhost:8080/cfm.php` in browser
+Открыть в браузере `http://localhost:8080/cfm.php`
 
-# Finansial Support
- - [Boosty](https://boosty.to/trashlogic/donate)
- - ~~Open Collectvie~~ (Temporarily unavailable)
-
-# Build and test
-To test changes use `runtime_cfm.php`
+# Сборка и тестирование
+Для проверки изменений используется `proj_runtime.php`
 
 ```bash
 git clone https://github.com/cfm-group/CFM
-php -f build_proj.php cfm
+php -f proj_build.php cfm
 php -S localhost:8080
 ```
-Open `http://localhost:8080/cfm.php` in browser
+Открыть в браузере `http://localhost:8080/cfm.php`
 
 # TODO
- - WebDAV protocol support
- - System of rights to perform operations
- - Possibility of faking root directory
- - Packing folder into zip archive
- - Automatic updates
- - File content preview
- - Localisation system
- - Tokens for anonymous access to files
- - MIME type override based on file extension
+ - Поддержка протокола WebDAV
+ - Система прав на выполнение операций
+ - Возможность подмены корневой дирректории
+ - Упаковка текущей папки в zip архив
+ - Автоматические обновления
+ - Просмотр содержимого файлов
+ - Локализация названий и сообщений
+ - Токены для анонимного доступа к файлам
+ - Переопределение MIME-типа на основе расширения файла

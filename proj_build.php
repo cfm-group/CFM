@@ -5,12 +5,12 @@ if ($argc != 2) {
     exit(1);
 }
 
-require('src/core/mod_microcore.php');
-require('src/core/mod_infuser.php');
-require('src/core/mod_rt_config.php');
+require('src/ext_core/mod_microcore.php');
+require('src/ext_core/mod_infuser.php');
+require('src/ext_core/mod_rt_config.php');
 
 $targetProject = $argv[1];
-$targetSubdir = 'src/specific/' . $targetProject;
+$targetSubdir = 'src/project/' . $targetProject;
 $targetFile = $targetProject . '.php';
 
 if (!file_exists($targetSubdir)) {
