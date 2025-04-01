@@ -340,3 +340,5 @@ class FileViewModule extends PlainGroupModule implements UserModuleInterface
 ModIndex::addModule(FileViewModule::class);
 ModIndex::addModule(FileDownloadModule::class);
 ModIndex::addModule(FileViewDeleteModule::class);
+
+ModIndex::addParent(FileViewDeleteModule::class, FormProtectModule::MOD_UUID);

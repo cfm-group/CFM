@@ -98,8 +98,6 @@ class SetupFirstUserModule implements UserModuleInterface
     )/*: array*/ {
         $username = static::valueGet($args, 'new_username');
         $password = static::valueGet($args, 'new_password');
-        if (!$username && !$password)
-            return ['status' => 1];
         if (!$username || !$password)
             return [
                 'status' => -1,
@@ -167,8 +165,6 @@ class SetAddUserModule extends SetupFirstUserModule implements UserModuleInterfa
     )/*: ?string*/ {
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args);
-        if ($curr_args['status'] === 1)
-            return;
 
         return 'New user successfully created';
     }
@@ -271,3 +267,6 @@ ModIndex::addModule(SetListUserModule::class);
 ModIndex::addModule(SetAddUserModule::class);
 ModIndex::addModule(SetRemoveUserModule::class);
 ModIndex::addModule(SetupFirstUserModule::class);
+
+ModIndex::addParent(SetAddUserModule::class, FormProtectModule::MOD_UUID);
+ModIndex::addParent(SetRemoveUserModule::class, FormProtectModule::MOD_UUID);

@@ -919,3 +919,5 @@ ModIndex::AddModule(TreeFileUploadModule::class);
 ModIndex::AddModule(TreeCreateDirectoryModule::class);
 ModIndex::AddModule(TreeDeleteDirectoryModule::class);
 ModIndex::AddModule(TreeCreateFileModule::class);
+
+ModIndex::addParent(TreeDeleteDirectoryModule::class, FormProtectModule::MOD_UUID);

@@ -71,18 +71,6 @@ MwChains::$CHAINS = [
 ];
 
 ModIndex::addParent(CoreLogoutModule::class, CFMMain::MOD_UUID);
-ModIndex::addParent(
-    FormProtectModule::class,
-    CFMMain::MOD_UUID
-);
-
-ModIndex::addParent(
-    FileViewDeleteModule::class,
-    FormProtectModule::MOD_UUID
-);
-ModIndex::addParent(
-    TreeDeleteDirectoryModule::class,
-    FormProtectModule::MOD_UUID
-);
+ModIndex::addParent(FormProtectModule::class, CFMMain::MOD_UUID);
 
 UserSettingsGroup::$AUTH_CLS = CoreAuthenticationModule::class;
