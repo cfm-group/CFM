@@ -84,3 +84,5 @@ ModIndex::addParent(
     TreeDeleteDirectoryModule::class,
     FormProtectModule::MOD_UUID
 );
+
+UserSettingsGroup::$AUTH_CLS = CoreAuthenticationModule::class;

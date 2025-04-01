@@ -123,6 +123,7 @@ class CoreAuthenticationModule implements
                 time() + static::$P_EPOCH_DT
             );
 
+        $args->cfgVSet(static::class, 'is_authenticated', true);
         $args->cfgVSet(static::class, 'current_user', $username);
 
         // ini_set('open_basedir', getcwd());
@@ -311,6 +312,7 @@ class CoreAuthenticationModule implements
     {
         return [
             'secret' => null,
+            'is_authenticated' => false,
             'current_user' => null,
             'users' => [],
         ];

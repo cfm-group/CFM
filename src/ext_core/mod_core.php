@@ -1322,7 +1322,7 @@ class MwChains implements MiddlewareInterface
         foreach ($chain as $mw) {
             list($cls, $cls_args) = $lastMw = $mw;
             if (!is_subclass_of($cls, MiddlewareInterface::class, true))
-                return -1;
+                throw new Exception('Internal Server Error. Miss-configuration');
 
             if (!$cls::invokeMw($args, $cls_args))
                 return 1;

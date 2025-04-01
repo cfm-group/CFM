@@ -1663,7 +1663,7 @@ class MwChains implements MiddlewareInterface
         foreach ($chain as $mw) {
             list($cls, $cls_args) = $lastMw = $mw;
             if (!is_subclass_of($cls, MiddlewareInterface::class, true))
-                return -1;
+                throw new Exception('Internal Server Error. Miss-configuration');
 
             if (!$cls::invokeMw($args, $cls_args))
                 return 1;
@@ -2628,715 +2628,6 @@ $main = function ()/*: void*/
     if (MwChains::invokeFullChain($args, $page) < 0)
         http_response_code(404);
 };
-/**&
-@module_content
-  uuid: cbb1d654-396f-49fc-b575-6ca687b7899c
-  name: Core Setup
-  verm: 1
-  author: trashlogic
-  license: AGPL-3.0-only
-&*/
-class SetupGroup extends GroupModule implements
-    UserModuleInterface,
-    ConfigProviderInterface
-{
-    const MOD_UUID = 'd642a9dc-e298-483b-adc4-849d925b6287';
-    const MOD_NAME = 'Setup';
-    const MOD_PARENT = null;
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        if ($args->cfgVGet(static::class, 'setup_complete'))
-            return ['status' => -1, 'msg' => 'Already setted up'];
-
-        return ['status' => 0];
-    }
-
-    public static function configGet()/*: array*/
-    {
-        return [
-            'setup_complete' => false,
-        ];
-    }
-}
-
-class SetupModule extends PlainGroupModule implements
-    UserModuleInterface,
-    MiddlewareInterface
-{
-    use FormTools;
-
-    const MOD_UUID = 'cb990db7-99ef-4aa6-adee-6e1b3a959f19';
-    const MOD_NAME = 'Setup';
-    const MOD_PARENT = null;
-
-    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
-    {
-        if (!$args->cfgVGet(SetupGroup::class, 'setup_complete')) {
-            $args->getStack()->resetFromUUID(static::MOD_UUID);
-            return false;
-        }
-
-        return true;
-    }
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        if ($args->cfgVGet(SetupGroup::class, 'setup_complete'))
-            return ['status' => -1, 'msg' => 'Already setted up'];
-
-        foreach (ModIndex::getParents(SetupGroup::MOD_UUID) as $uuid => $cls) {
-            $result = ModIndex::fastCall($cls, $args);
-
-            if ($result['status'] !== 0)
-                return $result;
-        }
-
-        $args->cfgVSet(SetupGroup::class, 'setup_complete', true, true);
-
-        $result = $args->cfgIGet()->dumpToPart($args->pathCurrent());
-        if ($result['status'] < 0)
-            return ['status' => -3, 'msg' => 'Unable to complete setup'];
-
-        return ['status' => 0];
-    }
-
-    public static function form(ArgsStore $args)/*: ?string*/
-    {
-        return SetupGroup::form($args);
-    }
-
-    public static function display(
-        ArgsStore $args,
-        array $curr_args,
-        array $prnt_args = []
-    )/*: ?string*/ {
-        if ($curr_args['status'] < 0)
-            return static::errorGet($curr_args);
-        if ($curr_args['status'] === 1)
-            return;
-
-        http_response_code(303);
-        header('Location: ');
-
-        return
-            '<border>'
-                . 'Installation completed successfully. Reload the page'
-            . '</border>';
-    }
-}
-
-ModIndex::addModule(SetupModule::class);
-ModIndex::addModule(SetupGroup::class);
-RuntimeConfig::addDefault(SetupGroup::class);
-/**&
-@module_content
-  uuid: b397d6d1-68bb-4e8c-88ce-d787f43f117c
-  name: Current version
-  verm: 1
-  author: trashlogic
-  license: AGPL-3.0-only
-&*/
-class Version implements MachineModuleInterface, AlterModuleInterface
-{
-    const MOD_UUID = '822f76e6-053f-42a7-971e-2355aef362b9';
-    const MOD_NAME = 'Version';
-    const MOD_PARENT = null;
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        return [
-            'version' => VERSION,
-            'ver_major' => VER_MAJOR,
-            'ver_minor' => VER_MINOR,
-            'ver_patch' => VER_PATCH,
-        ];
-    }
-
-    public static function preDisplay(
-        ArgsStore $args,
-        array $curr_args,
-        array $prnt_args = []
-    )/*: ?string*/ {
-        return 'displayArray';
-    }
-
-    public static function displayArray(
-        ArgsStore $args,
-        array $curr_args,
-        array $prnt_args = []
-    )/*: ?array*/ {
-        return $curr_args;
-    }
-}
-
-ModIndex::addModule(Version::class);
-/**&
-@module_content
-  uuid: 3bb19b4f-c49b-46cf-9fb0-09e3bc68c73f
-  name: CSRF Form protection
-  verm: 1
-  author: trashlogic
-  license: AGPL-3.0-only
-  required: 1
-&*/
-class FormProtectModule implements
-    UserModuleInterface,
-    MiddlewareInterface,
-    GadgetModuleInterface,
-    ConfigProviderInterface
-{
-    use FormTools;
-    use SecurityTools;
-
-    const MOD_UUID = '8f26af5a-2a93-40fa-9309-54fccaeb0635';
-    const MOD_NAME = 'CSRF Form protection';
-    const MOD_PARENT = null;
-
-    public static $FORM_FIELDS = [
-        'form_key' => [
-            't_str',
-            'c_not_empty' => [],
-            'c_domain' => ['from' => 'post'],
-            'c_limit' => [
-                'mode' => 'len',
-                'eq' => 64,
-            ],
-            'o_field_schema' => [
-                'type' => 'hidden',
-            ],
-            'o_prevent_export' => ['display', 'preserve'],
-        ],
-    ];
-    public static $HASH_ALGO = 'sha256';
-
-    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
-    {
-        $cookieExists = array_key_exists('action_nonce', $_COOKIE);
-        if (!$cookieExists) {
-            $nonce = static::getRandBytes(8);
-            setcookie('action_nonce', $nonce, 0, '/');
-        } else {
-            $nonce = $_COOKIE['action_nonce'];
-        }
-
-        $secret = $args->cfgVGet(static::class, 'secret');
-        $currentKey = hash_hmac(static::$HASH_ALGO, $nonce, $secret);
-        $args->cfgVSet(static::class, 'current_key', $currentKey);
-
-        if (!array_key_exists(static::MOD_UUID, ModIndex::$PL))
-            return true;
-
-        $uuid = $args->getStack()->targetUUID();
-        if (!in_array($uuid, ModIndex::$PL[static::MOD_UUID]))
-            return true;
-
-        if (!$cookieExists) {
-            $args->getStack()->resetFromUUID(static::MOD_UUID);
-            return false;
-        }
-
-        $passedKey = static::valueGet($args, 'form_key', '');
-        if (!static::hashCompare($currentKey, $passedKey)) {
-            $args->getStack()->resetFromUUID(static::MOD_UUID);
-            return false;
-        }
-
-        $nonce = static::getRandBytes(8);
-        $currentKey = hash_hmac(static::$HASH_ALGO, $nonce, $secret);
-
-        setcookie('action_nonce', $nonce, 0, '/');
-        $args->cfgVSet(static::class, 'current_key', $currentKey);
-
-        return true;
-    }
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        return ['status' => 0];
-    }
-
-    public static function gadget(ArgsStore $args)/*: ?string*/
-    {
-        $key = $args->cfgVGet(static::class, 'current_key');
-
-        return static::fieldGet($args, 'form_key', [], ['{value}' => $key]);
-    }
-
-    public static function form(ArgsStore $args)/*: ?string*/
-    {
-        return
-            '<border style="text-align: center;">'
-                . 'Form is outdated. Reload the page'
-            . '</border>';
-    }
-
-    public static function display(
-        ArgsStore $args,
-        array $curr_args,
-        array $prnt_args = []
-    )/*: ?string*/ {
-    }
-
-    public static function configGet()/*: array*/
-    {
-        return [
-            'current_key' => null,
-            'secret' => null,
-        ];
-    }
-}
-
-class FormProtectSetupModule implements BasicModuleInterface
-{
-    use SecurityTools;
-
-    const MOD_UUID = '8793ca41-4049-445c-a57b-625583b3f47a';
-    const MOD_NAME = 'Form token secret Setup';
-    const MOD_PARENT = SetupGroup::MOD_UUID;
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        $args->cfgVSet(
-            FormProtectModule::class,
-            'secret',
-            static::getRandBytes(32),
-            true
-        );
-
-        return ['status' => 0];
-    }
-}
-
-ModIndex::addModule(FormProtectModule::class);
-ModIndex::addModule(FormProtectSetupModule::class);
-RuntimeConfig::addDefault(FormProtectModule::class);
-/**&
-@module_content
-  uuid: a11190f6-fee2-4a5b-9687-8edd9c3e1b5b
-  name: Complex Auth module
-  verm: 1
-  author: trashlogic
-  license: AGPL-3.0-only
-  required: 1
-&*/
-class CoreAuthenticationModule implements
-    UserModuleInterface,
-    MiddlewareInterface,
-    ConfigProviderInterface
-{
-    use SecurityTools;
-    use FormTools;
-
-    const MOD_UUID = '21bd5bf0-1bf9-4d87-bce1-734d5426b7fb';
-    const MOD_NAME = 'Core Authentication module';
-    const MOD_PARENT = null;
-
-    public static $FORM_FIELDS = [
-        'ca_username' => [
-            't_str',
-            'c_not_empty' => [],
-            'c_domain' => ['from' => 'post'],
-            'c_limit' => [
-                'mode' => 'len',
-                'minq' => 4,
-                'maxq' => 12,
-            ],
-            'o_field_schema' => [
-                'type' => 'text',
-                'placeholder' => 'username',
-                'attrs' => [
-                    'autocomplete' => 'off',
-                    'minlength' => 4,
-                    'maxlength' => 12,
-                ],
-            ],
-        ],
-        'ca_password' => [
-            't_str',
-            'c_not_empty' => [],
-            'c_domain' => ['from' => 'post'],
-            'c_limit' => [
-                'mode' => 'len',
-                'minq' => 8,
-                'maxq' => 64,
-            ],
-            'o_field_schema' => [
-                'type' => 'password',
-                'placeholder' => 'password',
-                'attrs' => [
-                    'minlength' => 8,
-                    'maxlength' => 64,
-                ],
-            ],
-            'o_prevent_export' => ['display', 'preserve'],
-        ],
-    ];
-    public static $HASH_ALGO = 'sha256';
-    public static $C_EPOCH_DT = 3600; // Current epoch
-    public static $P_EPOCH_DT = 604800; // Persistant epoch
-    public static $USER_TEMPLATE = [
-        'pwd_hash' => ''
-    ];
-
-    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
-    {
-        if (!array_key_exists('current_user', $_COOKIE)
-            || !array_key_exists('key_nonce', $_COOKIE)
-        ) {
-            $args->getStack()->resetFromUUID(static::MOD_UUID);
-            return false;
-        }
-
-        $secret = $args->cfgVGet(static::class, 'secret');
-        $username = $_COOKIE['current_user'];
-
-        $currentAuthorized = false;
-        $currentKey = static::createCurrentKey(
-            $secret,
-            $username,
-            $_COOKIE['key_nonce']
-        );
-        if (array_key_exists('current_key', $_COOKIE))
-            $currentAuthorized = static::hashCompare(
-                $currentKey,
-                $_COOKIE['current_key']
-            );
-
-        $persistantAuthorized = false;
-        $persistantKey = static::createPersistantKey(
-            $secret,
-            $username,
-            $_COOKIE['key_nonce']
-        );
-        if (array_key_exists('persistant_key', $_COOKIE))
-            $persistantAuthorized = static::hashCompare(
-                $persistantKey,
-                $_COOKIE['persistant_key']
-            );
-
-        if (!($currentAuthorized || $persistantAuthorized)) {
-            $args->getStack()->resetFromUUID(static::MOD_UUID);
-            return false;
-        }
-
-        if (!$currentAuthorized)
-            setcookie(
-                'current_key',
-                $currentKey,
-                time() + static::$C_EPOCH_DT
-            );
-
-        if (!$persistantAuthorized)
-            setcookie(
-                'persistant_key',
-                $persistantKey,
-                time() + static::$P_EPOCH_DT
-            );
-
-        $args->cfgVSet(static::class, 'current_user', $username);
-
-        // ini_set('open_basedir', getcwd());
-
-        return true;
-    }
-
-    public static function createKey(
-        /*string*/ $secret,
-        /*string*/ $username,
-        /*string*/ $nonce,
-        /*int*/ $epochTime
-    )/*: string*/ {
-        return hash_hmac(
-            static::$HASH_ALGO,
-            $username . '_' . $nonce,
-            $secret . '_' . floor(time() / $epochTime)
-        );
-    }
-
-    public static function createCurrentKey(
-        /*string*/ $secret,
-        /*string*/ $username,
-        /*string*/ $nonce
-    )/*: string*/ {
-        return static::createKey(
-            $secret,
-            $username,
-            $nonce,
-            static::$C_EPOCH_DT
-        );
-    }
-
-    public static function createPersistantKey(
-        /*string*/ $secret,
-        /*string*/ $username,
-        /*string*/ $nonce
-    )/*: string*/ {
-        return static::createKey(
-            $secret,
-            $username,
-            $nonce,
-            static::$P_EPOCH_DT
-        );
-    }
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        $username = static::valueGet($args, 'ca_username');
-        $password = static::valueGet($args, 'ca_password');
-        if (!$username && !$password)
-            return ['status' => 1];
-        if (!$username || !$password)
-            return ['status' => -1, 'msg' => 'Invalid username/password'];
-
-        $users = $args->cfgVGet(static::class, 'users', []);
-        if (!array_key_exists($username, $users))
-            return ['status' => -1, 'msg' => 'Invalid username/password'];
-
-        $current = $users[$username];
-        if (!password_verify($password, $current['pwd_hash']))
-            return ['status' => -1, 'msg' => 'Invalid username/password'];
-
-        $nonce = static::getRandBytes(8);
-        $secret = $args->cfgVGet(static::class, 'secret');
-        $currentKey = static::createCurrentKey($secret, $username, $nonce);
-        $persistantKey = static::createPersistantKey($secret, $username, $nonce);
-
-        return [
-            'status' => 0,
-            'username' => $username,
-            'key_nonce' => $nonce,
-            'current_key' => $currentKey,
-            'persistant_key' => $persistantKey,
-        ];
-    }
-
-    public static function form(ArgsStore $args)/*: ?string*/
-    {
-        return
-            '<border class="stack">'
-                . static::fieldGet($args, 'ca_username')
-                . static::fieldGet($args, 'ca_password')
-                . '<input type="submit" value="Log in">'
-            . '</border>';
-    }
-
-    public static function display(
-        ArgsStore $args,
-        array $curr_args,
-        array $prnt_args = []
-    )/*: ?string*/ {
-        if ($curr_args['status'] < 0)
-            return static::errorGet($curr_args);
-        if ($curr_args['status'] === 1)
-            return;
-
-        $pTime = time() + static::$P_EPOCH_DT;
-        $cTime = time() + static::$C_EPOCH_DT;
-        setcookie('current_user', $curr_args['username'], $pTime, '/');
-        setcookie('key_nonce', $curr_args['key_nonce'], $pTime, '/');
-        setcookie('current_key', $curr_args['current_key'], $cTime, '/');
-        setcookie('persistant_key', $curr_args['persistant_key'], $pTime, '/');
-
-        http_response_code(303);
-        header('Location: ');
-
-        return '<border>Successfull authorization. Reload the page</border>';
-    }
-
-    public static function currentUser(ArgsStore $args)/*: ?string*/
-    {
-        return $args->cfgVGet(static::class, 'current_user');
-    }
-
-    public static function currentUserData(ArgsStore $args)/*: ?array*/
-    {
-        $username = static::currentUser($args);
-        if (is_null($username))
-            return;
-
-        $args->cfgVGet(static::class, 'users')[$username];
-    }
-
-    public static function listUsers(ArgsStore $args)/*: array*/
-    {
-        return array_keys(
-            $args->cfgVGet(static::class, 'users')
-        );
-    }
-
-    public static function addUser(
-        ArgsStore $args,
-        /*string*/ $username,
-        /*string*/ $password
-    )/*: array*/ {
-        $users = $args->cfgVGet(static::class, 'users');
-        if (array_key_exists($username, $users))
-            return ['status' => -1, 'msg' => 'User already exists'];
-
-        $user = static::$USER_TEMPLATE;
-        $user['pwd_hash'] = password_hash($password, PASSWORD_DEFAULT);
-
-        $users[$username] = $user;
-
-        if (!$args->cfgVSet(static::class, 'users', $users, true))
-            return ['status' => -2, 'msg' => 'Unable apply changes'];
-
-        return ['status' => 0, 'user' => $user];
-    }
-
-    public static function delUser(
-        ArgsStore $args,
-        /*string*/ $username
-    )/*: array*/ {
-        $users = $args->cfgVGet(static::class, 'users');
-        if (!array_key_exists($username, $users))
-            return ['status' => -1, 'msg' => 'Unknown user'];
-
-        unset($users[$username]);
-
-        if (!$args->cfgVSet(static::class, 'users', $users, true))
-            return ['status' => -2, 'msg' => 'Unable apply changes'];
-
-        return ['status' => 0];
-    }
-
-    public static function updUser(
-        ArgsStore $args,
-        /*string*/ $username,
-        /*array*/ $data
-    )/*: array*/ {
-        $users = $args->cfgVGet(static::class, 'users');
-        if (!array_key_exists($username, $users))
-            return ['status' => -1, 'msg' => 'Unknown user'];
-
-        $users[$username] = $data;
-
-        if (!$args->cfgVSet(static::class, 'users', $users, true))
-            return ['status' => -2, 'msg' => 'Unable apply changes'];
-    }
-
-    public static function configGet()/*: array*/
-    {
-        return [
-            'secret' => null,
-            'current_user' => null,
-            'users' => [],
-        ];
-    }
-}
-
-class CoreAuthorizationModule implements
-    BasicModuleInterface,
-    MiddlewareInterface
-{
-    const MOD_UUID = '29794662-5ec3-4f90-95ed-3f2d27eaa0e1';
-    const MOD_NAME = 'Core Authorization module';
-    const MOD_PARENT = null;
-
-    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
-    {
-    }
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-    }
-}
-
-class CoreLogoutModule implements
-    UserModuleInterface,
-    GadgetModuleInterface
-{
-    use FormTools;
-
-    const MOD_UUID = '9a43cb83-a844-4dd8-88ff-b24c9dad0421';
-    const MOD_NAME = 'Core Logout module';
-    const MOD_PARENT = null;
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        return [
-            'status' => 0,
-            'keys' => [
-                'current_user',
-                'key_nonce',
-                'current_key',
-                'persistant_key'
-            ],
-        ];
-    }
-
-    public static function gadget(ArgsStore $args)/*: ?string*/
-    {
-        return static::submitGet('Logout');
-    }
-
-    public static function form(ArgsStore $args)/*: ?string*/
-    {
-    }
-
-    public static function display(
-        ArgsStore $args,
-        array $curr_args,
-        array $prnt_args = []
-    )/*: ?string*/ {
-        if ($curr_args['status'] < 0)
-            return static::errorGet($curr_args);
-
-        foreach ($curr_args['keys'] as $key) {
-            setcookie($key, '', 0, '/');
-        }
-
-        http_response_code(303);
-        header('Location: ');
-
-        return '<border>Successfull logout. Reload the page</border>';
-    }
-}
-
-class SetupSessionSecretModule implements BasicModuleInterface
-{
-    use SecurityTools;
-
-    const MOD_UUID = '7ae13f6b-7e94-4697-b31d-9039a5772831';
-    const MOD_NAME = 'Setup Session Secret';
-    const MOD_PARENT = SetupGroup::MOD_UUID;
-
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        $args->cfgVSet(
-            CoreAuthenticationModule::class,
-            'secret',
-            static::getRandBytes(32),
-            true
-        );
-
-        return ['status' => 0];
-    }
-}
-
-ModIndex::addModule(CoreAuthenticationModule::class);
-ModIndex::addModule(CoreLogoutModule::class);
-ModIndex::addModule(SetupSessionSecretModule::class);
-RuntimeConfig::addDefault(CoreAuthenticationModule::class);
 /**&
 @module_content
   uuid: 2dd9d09b-60c9-4a4c-bdec-c11aeeb88348
@@ -4340,8 +3631,8 @@ class TreeFileUploadModule implements
         } else if (!is_writable($path))
             return ['status' => -7, 'msg' => 'Target directory isn\'t writable'];
 
-        if (!touch($target))
-            return ['status' => -8, 'msg' => 'Unable to create file'];
+        // if (!touch($target))
+        //     return ['status' => -8, 'msg' => 'Unable to create file'];
 
         $append = static::valueGet($args, 'upload_append');
         if (!$append) {
@@ -4963,14 +4254,771 @@ ModIndex::AddModule(TreeDeleteDirectoryModule::class);
 ModIndex::AddModule(TreeCreateFileModule::class);
 /**&
 @module_content
+  uuid: cbb1d654-396f-49fc-b575-6ca687b7899c
+  name: Core Setup
+  verm: 1
+  author: trashlogic
+  license: AGPL-3.0-only
+&*/
+class SetupGroup extends GroupModule implements
+    UserModuleInterface,
+    ConfigProviderInterface
+{
+    const MOD_UUID = 'd642a9dc-e298-483b-adc4-849d925b6287';
+    const MOD_NAME = 'Setup';
+    const MOD_PARENT = null;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        if ($args->cfgVGet(static::class, 'setup_complete'))
+            return ['status' => -1, 'msg' => 'Already setted up'];
+
+        return ['status' => 0];
+    }
+
+    public static function configGet()/*: array*/
+    {
+        return [
+            'setup_complete' => false,
+        ];
+    }
+}
+
+class SetupModule extends PlainGroupModule implements
+    UserModuleInterface,
+    MiddlewareInterface
+{
+    use FormTools;
+
+    const MOD_UUID = 'cb990db7-99ef-4aa6-adee-6e1b3a959f19';
+    const MOD_NAME = 'Setup';
+    const MOD_PARENT = null;
+
+    public static $FORM_FIELDS = [
+        'setup_perform' => [
+            't_int',
+            'c_not_empty' => [],
+            'o_field_schema' => [
+                'placeholder' => 'sqlite:///var/...',
+                'label' => ['DSN (Host)', 'new_line'],
+            ],
+        ],
+    ];
+
+    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
+    {
+        if (!$args->cfgVGet(SetupGroup::class, 'setup_complete')) {
+            $args->getStack()->resetFromUUID(static::MOD_UUID);
+            return false;
+        }
+
+        return true;
+    }
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        if (!static::valueGet($args, 'setup_perform'))
+            return ['status' => 1];
+
+        if ($args->cfgVGet(SetupGroup::class, 'setup_complete'))
+            return ['status' => -1, 'msg' => 'Already setted up'];
+
+        foreach (ModIndex::getParents(SetupGroup::MOD_UUID) as $uuid => $cls) {
+            $result = ModIndex::fastCall($cls, $args);
+
+            if ($result['status'] !== 0)
+                return $result;
+        }
+
+        $args->cfgVSet(SetupGroup::class, 'setup_complete', true, true);
+
+        $result = $args->cfgIGet()->dumpToPart(
+            $args->pathCurrent()
+        );
+        if ($result['status'] < 0)
+            return ['status' => -3, 'msg' => 'Unable to complete setup'];
+
+        return ['status' => 0];
+    }
+
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+        return
+            SetupGroup::form($args)
+            . '<span class="stack">'
+                . static::buttonGet('setup_perform', 1, 'Finish setup')
+            . '</span>';
+    }
+
+    public static function display(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
+        if ($curr_args['status'] < 0)
+            return static::errorGet($curr_args);
+        if ($curr_args['status'] === 1)
+            return;
+
+        http_response_code(303);
+        header('Location: ');
+
+        return
+            '<border>'
+                . 'Installation completed successfully. Reload the page'
+            . '</border>';
+    }
+}
+
+ModIndex::addModule(SetupModule::class);
+ModIndex::addModule(SetupGroup::class);
+RuntimeConfig::addDefault(SetupGroup::class);
+/**&
+@module_content
+  uuid: b397d6d1-68bb-4e8c-88ce-d787f43f117c
+  name: Current version
+  verm: 1
+  author: trashlogic
+  license: AGPL-3.0-only
+&*/
+class Version implements MachineModuleInterface, AlterModuleInterface
+{
+    const MOD_UUID = '822f76e6-053f-42a7-971e-2355aef362b9';
+    const MOD_NAME = 'Version';
+    const MOD_PARENT = null;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        return [
+            'version' => VERSION,
+            'ver_major' => VER_MAJOR,
+            'ver_minor' => VER_MINOR,
+            'ver_patch' => VER_PATCH,
+        ];
+    }
+
+    public static function preDisplay(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
+        return 'displayArray';
+    }
+
+    public static function displayArray(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?array*/ {
+        return $curr_args;
+    }
+}
+
+ModIndex::addModule(Version::class);
+/**&
+@module_content
   uuid: 3ffb56ac-4362-4bd1-bbc8-99a47c88a8c3
-  name: CFM settings
+  name: Core Settings Module
   verm: 1
   author: trashlogic
   license: AGPL-3.0-only
   required: 1
 &*/
+class SettingsModule extends PlainGroupModule implements UserModuleInterface
+{
+    const MOD_UUID = '6859a9c9-132d-447f-8b4f-4484064e877a';
+    const MOD_NAME = 'Settings';
+    const MOD_PARENT = null;
 
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        return [
+            'status' => 0,
+            'path' => $args->pathCurrent(),
+        ];
+    }
+}
+
+ModIndex::addModule(SettingsModule::class, true);
+/**&
+@module_content
+  uuid: 3bb19b4f-c49b-46cf-9fb0-09e3bc68c73f
+  name: CSRF Form protection
+  verm: 1
+  author: trashlogic
+  license: AGPL-3.0-only
+  required: 1
+&*/
+class FormProtectModule implements
+    UserModuleInterface,
+    MiddlewareInterface,
+    GadgetModuleInterface,
+    ConfigProviderInterface
+{
+    use FormTools;
+    use SecurityTools;
+
+    const MOD_UUID = '8f26af5a-2a93-40fa-9309-54fccaeb0635';
+    const MOD_NAME = 'CSRF Form protection';
+    const MOD_PARENT = null;
+
+    public static $FORM_FIELDS = [
+        'form_key' => [
+            't_str',
+            'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
+            'c_limit' => [
+                'mode' => 'len',
+                'eq' => 64,
+            ],
+            'o_field_schema' => [
+                'type' => 'hidden',
+            ],
+            'o_prevent_export' => ['display', 'preserve'],
+        ],
+    ];
+    public static $HASH_ALGO = 'sha256';
+
+    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
+    {
+        $cookieExists = array_key_exists('action_nonce', $_COOKIE);
+        if (!$cookieExists) {
+            $nonce = static::getRandBytes(8);
+            setcookie('action_nonce', $nonce, 0, '/');
+        } else {
+            $nonce = $_COOKIE['action_nonce'];
+        }
+
+        $secret = $args->cfgVGet(static::class, 'secret');
+        $currentKey = hash_hmac(static::$HASH_ALGO, $nonce, $secret);
+        $args->cfgVSet(static::class, 'current_key', $currentKey);
+
+        if (!array_key_exists(static::MOD_UUID, ModIndex::$PL))
+            return true;
+
+        $uuid = $args->getStack()->targetUUID();
+        if (!in_array($uuid, ModIndex::$PL[static::MOD_UUID]))
+            return true;
+
+        if (!$cookieExists) {
+            $args->getStack()->resetFromUUID(static::MOD_UUID);
+            return false;
+        }
+
+        $passedKey = static::valueGet($args, 'form_key', '');
+        if (!static::hashCompare($currentKey, $passedKey)) {
+            $args->getStack()->resetFromUUID(static::MOD_UUID);
+            return false;
+        }
+
+        $nonce = static::getRandBytes(8);
+        $currentKey = hash_hmac(static::$HASH_ALGO, $nonce, $secret);
+
+        setcookie('action_nonce', $nonce, 0, '/');
+        $args->cfgVSet(static::class, 'current_key', $currentKey);
+
+        return true;
+    }
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        return ['status' => 0];
+    }
+
+    public static function gadget(ArgsStore $args)/*: ?string*/
+    {
+        $key = $args->cfgVGet(static::class, 'current_key');
+
+        return static::fieldGet($args, 'form_key', [], ['{value}' => $key]);
+    }
+
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+        return
+            '<border style="text-align: center;">'
+                . 'Form is outdated. Reload the page'
+            . '</border>';
+    }
+
+    public static function display(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
+    }
+
+    public static function configGet()/*: array*/
+    {
+        return [
+            'current_key' => null,
+            'secret' => null,
+        ];
+    }
+}
+
+class FormProtectSetupModule implements BasicModuleInterface
+{
+    use SecurityTools;
+
+    const MOD_UUID = '8793ca41-4049-445c-a57b-625583b3f47a';
+    const MOD_NAME = 'Form token secret Setup';
+    const MOD_PARENT = SetupGroup::MOD_UUID;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        $args->cfgVSet(
+            FormProtectModule::class,
+            'secret',
+            static::getRandBytes(32),
+            true
+        );
+
+        return ['status' => 0];
+    }
+}
+
+ModIndex::addModule(FormProtectModule::class);
+ModIndex::addModule(FormProtectSetupModule::class);
+RuntimeConfig::addDefault(FormProtectModule::class);
+/**&
+@module_content
+  uuid: a11190f6-fee2-4a5b-9687-8edd9c3e1b5b
+  name: Complex Auth module
+  verm: 1
+  author: trashlogic
+  license: AGPL-3.0-only
+  required: 1
+&*/
+class CoreAuthenticationModule implements
+    UserModuleInterface,
+    MiddlewareInterface,
+    ConfigProviderInterface
+{
+    use SecurityTools;
+    use FormTools;
+
+    const MOD_UUID = '21bd5bf0-1bf9-4d87-bce1-734d5426b7fb';
+    const MOD_NAME = 'Core Authentication module';
+    const MOD_PARENT = null;
+
+    public static $FORM_FIELDS = [
+        'ca_username' => [
+            't_str',
+            'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
+            'c_limit' => [
+                'mode' => 'len',
+                'minq' => 4,
+                'maxq' => 12,
+            ],
+            'o_field_schema' => [
+                'type' => 'text',
+                'placeholder' => 'username',
+                'attrs' => [
+                    'autocomplete' => 'off',
+                    'minlength' => 4,
+                    'maxlength' => 12,
+                ],
+            ],
+        ],
+        'ca_password' => [
+            't_str',
+            'c_not_empty' => [],
+            'c_domain' => ['from' => 'post'],
+            'c_limit' => [
+                'mode' => 'len',
+                'minq' => 8,
+                'maxq' => 64,
+            ],
+            'o_field_schema' => [
+                'type' => 'password',
+                'placeholder' => 'password',
+                'attrs' => [
+                    'minlength' => 8,
+                    'maxlength' => 64,
+                ],
+            ],
+            'o_prevent_export' => ['display', 'preserve'],
+        ],
+    ];
+    public static $HASH_ALGO = 'sha256';
+    public static $C_EPOCH_DT = 3600; // Current epoch
+    public static $P_EPOCH_DT = 604800; // Persistant epoch
+    public static $USER_TEMPLATE = [
+        'pwd_hash' => ''
+    ];
+
+    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
+    {
+        if (!array_key_exists('current_user', $_COOKIE)
+            || !array_key_exists('key_nonce', $_COOKIE)
+        ) {
+            $args->getStack()->resetFromUUID(static::MOD_UUID);
+            return false;
+        }
+
+        $secret = $args->cfgVGet(static::class, 'secret');
+        $username = $_COOKIE['current_user'];
+
+        $currentAuthorized = false;
+        $currentKey = static::createCurrentKey(
+            $secret,
+            $username,
+            $_COOKIE['key_nonce']
+        );
+        if (array_key_exists('current_key', $_COOKIE))
+            $currentAuthorized = static::hashCompare(
+                $currentKey,
+                $_COOKIE['current_key']
+            );
+
+        $persistantAuthorized = false;
+        $persistantKey = static::createPersistantKey(
+            $secret,
+            $username,
+            $_COOKIE['key_nonce']
+        );
+        if (array_key_exists('persistant_key', $_COOKIE))
+            $persistantAuthorized = static::hashCompare(
+                $persistantKey,
+                $_COOKIE['persistant_key']
+            );
+
+        if (!($currentAuthorized || $persistantAuthorized)) {
+            $args->getStack()->resetFromUUID(static::MOD_UUID);
+            return false;
+        }
+
+        if (!$currentAuthorized)
+            setcookie(
+                'current_key',
+                $currentKey,
+                time() + static::$C_EPOCH_DT
+            );
+
+        if (!$persistantAuthorized)
+            setcookie(
+                'persistant_key',
+                $persistantKey,
+                time() + static::$P_EPOCH_DT
+            );
+
+        $args->cfgVSet(static::class, 'is_authenticated', true);
+        $args->cfgVSet(static::class, 'current_user', $username);
+
+        // ini_set('open_basedir', getcwd());
+
+        return true;
+    }
+
+    public static function createKey(
+        /*string*/ $secret,
+        /*string*/ $username,
+        /*string*/ $nonce,
+        /*int*/ $epochTime
+    )/*: string*/ {
+        return hash_hmac(
+            static::$HASH_ALGO,
+            $username . '_' . $nonce,
+            $secret . '_' . floor(time() / $epochTime)
+        );
+    }
+
+    public static function createCurrentKey(
+        /*string*/ $secret,
+        /*string*/ $username,
+        /*string*/ $nonce
+    )/*: string*/ {
+        return static::createKey(
+            $secret,
+            $username,
+            $nonce,
+            static::$C_EPOCH_DT
+        );
+    }
+
+    public static function createPersistantKey(
+        /*string*/ $secret,
+        /*string*/ $username,
+        /*string*/ $nonce
+    )/*: string*/ {
+        return static::createKey(
+            $secret,
+            $username,
+            $nonce,
+            static::$P_EPOCH_DT
+        );
+    }
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        $username = static::valueGet($args, 'ca_username');
+        $password = static::valueGet($args, 'ca_password');
+        if (!$username && !$password)
+            return ['status' => 1];
+        if (!$username || !$password)
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
+
+        $users = $args->cfgVGet(static::class, 'users', []);
+        if (!array_key_exists($username, $users))
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
+
+        $current = $users[$username];
+        if (!password_verify($password, $current['pwd_hash']))
+            return ['status' => -1, 'msg' => 'Invalid username/password'];
+
+        $nonce = static::getRandBytes(8);
+        $secret = $args->cfgVGet(static::class, 'secret');
+        $currentKey = static::createCurrentKey($secret, $username, $nonce);
+        $persistantKey = static::createPersistantKey($secret, $username, $nonce);
+
+        return [
+            'status' => 0,
+            'username' => $username,
+            'key_nonce' => $nonce,
+            'current_key' => $currentKey,
+            'persistant_key' => $persistantKey,
+        ];
+    }
+
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+        return
+            '<border class="stack">'
+                . static::fieldGet($args, 'ca_username')
+                . static::fieldGet($args, 'ca_password')
+                . '<input type="submit" value="Log in">'
+            . '</border>';
+    }
+
+    public static function display(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
+        if ($curr_args['status'] < 0)
+            return static::errorGet($curr_args);
+        if ($curr_args['status'] === 1)
+            return;
+
+        $pTime = time() + static::$P_EPOCH_DT;
+        $cTime = time() + static::$C_EPOCH_DT;
+        setcookie('current_user', $curr_args['username'], $pTime, '/');
+        setcookie('key_nonce', $curr_args['key_nonce'], $pTime, '/');
+        setcookie('current_key', $curr_args['current_key'], $cTime, '/');
+        setcookie('persistant_key', $curr_args['persistant_key'], $pTime, '/');
+
+        http_response_code(303);
+        header('Location: ');
+
+        return '<border>Successfull authorization. Reload the page</border>';
+    }
+
+    public static function currentUser(ArgsStore $args)/*: ?string*/
+    {
+        return $args->cfgVGet(static::class, 'current_user');
+    }
+
+    public static function currentUserData(ArgsStore $args)/*: ?array*/
+    {
+        $username = static::currentUser($args);
+        if (is_null($username))
+            return;
+
+        $args->cfgVGet(static::class, 'users')[$username];
+    }
+
+    public static function listUsers(ArgsStore $args)/*: array*/
+    {
+        return array_keys(
+            $args->cfgVGet(static::class, 'users')
+        );
+    }
+
+    public static function addUser(
+        ArgsStore $args,
+        /*string*/ $username,
+        /*string*/ $password
+    )/*: array*/ {
+        $users = $args->cfgVGet(static::class, 'users');
+        if (array_key_exists($username, $users))
+            return ['status' => -1, 'msg' => 'User already exists'];
+
+        $user = static::$USER_TEMPLATE;
+        $user['pwd_hash'] = password_hash($password, PASSWORD_DEFAULT);
+
+        $users[$username] = $user;
+
+        if (!$args->cfgVSet(static::class, 'users', $users, true))
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
+
+        return ['status' => 0, 'user' => $user];
+    }
+
+    public static function delUser(
+        ArgsStore $args,
+        /*string*/ $username
+    )/*: array*/ {
+        $users = $args->cfgVGet(static::class, 'users');
+        if (!array_key_exists($username, $users))
+            return ['status' => -1, 'msg' => 'Unknown user'];
+
+        unset($users[$username]);
+
+        if (!$args->cfgVSet(static::class, 'users', $users, true))
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
+
+        return ['status' => 0];
+    }
+
+    public static function updUser(
+        ArgsStore $args,
+        /*string*/ $username,
+        /*array*/ $data
+    )/*: array*/ {
+        $users = $args->cfgVGet(static::class, 'users');
+        if (!array_key_exists($username, $users))
+            return ['status' => -1, 'msg' => 'Unknown user'];
+
+        $users[$username] = $data;
+
+        if (!$args->cfgVSet(static::class, 'users', $users, true))
+            return ['status' => -2, 'msg' => 'Unable apply changes'];
+    }
+
+    public static function configGet()/*: array*/
+    {
+        return [
+            'secret' => null,
+            'is_authenticated' => false,
+            'current_user' => null,
+            'users' => [],
+        ];
+    }
+}
+
+class CoreAuthorizationModule implements
+    BasicModuleInterface,
+    MiddlewareInterface
+{
+    const MOD_UUID = '29794662-5ec3-4f90-95ed-3f2d27eaa0e1';
+    const MOD_NAME = 'Core Authorization module';
+    const MOD_PARENT = null;
+
+    public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
+    {
+    }
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+    }
+}
+
+class CoreLogoutModule implements
+    UserModuleInterface,
+    GadgetModuleInterface
+{
+    use FormTools;
+
+    const MOD_UUID = '9a43cb83-a844-4dd8-88ff-b24c9dad0421';
+    const MOD_NAME = 'Core Logout module';
+    const MOD_PARENT = null;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        return [
+            'status' => 0,
+            'keys' => [
+                'current_user',
+                'key_nonce',
+                'current_key',
+                'persistant_key'
+            ],
+        ];
+    }
+
+    public static function gadget(ArgsStore $args)/*: ?string*/
+    {
+        return static::submitGet('Logout');
+    }
+
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+    }
+
+    public static function display(
+        ArgsStore $args,
+        array $curr_args,
+        array $prnt_args = []
+    )/*: ?string*/ {
+        if ($curr_args['status'] < 0)
+            return static::errorGet($curr_args);
+
+        foreach ($curr_args['keys'] as $key) {
+            setcookie($key, '', 0, '/');
+        }
+
+        http_response_code(303);
+        header('Location: ');
+
+        return '<border>Successfull logout. Reload the page</border>';
+    }
+}
+
+class SetupSessionSecretModule implements BasicModuleInterface
+{
+    use SecurityTools;
+
+    const MOD_UUID = '7ae13f6b-7e94-4697-b31d-9039a5772831';
+    const MOD_NAME = 'Setup Session Secret';
+    const MOD_PARENT = SetupGroup::MOD_UUID;
+
+    public static function process(
+        ArgsStore $args,
+        array $prnt_args = []
+    )/*: array*/ {
+        $args->cfgVSet(
+            CoreAuthenticationModule::class,
+            'secret',
+            static::getRandBytes(32),
+            true
+        );
+
+        return ['status' => 0];
+    }
+}
+
+ModIndex::addModule(CoreAuthenticationModule::class);
+ModIndex::addModule(CoreLogoutModule::class);
+ModIndex::addModule(SetupSessionSecretModule::class);
+RuntimeConfig::addDefault(CoreAuthenticationModule::class);
+/**&
+@module_content
+  uuid: a414c192-5364-47d2-a94f-de6db9a90a7e
+  name: Core Authentication Settings
+  verm: 1
+  author: trashlogic
+  license: AGPL-3.0-only
+  required: 1
+&*/
 class SetListUserModule implements UserModuleInterface
 {
     use FormTools;
@@ -4989,7 +5037,7 @@ class SetListUserModule implements UserModuleInterface
     public static function form(ArgsStore $args)/*: ?string*/
     {
         $result = '';
-        $cls = SettingsModule::$AUTH_CLS;
+        $cls = UserSettingsGroup::getAuthenticationClass();
         foreach ($cls::listUsers($args) as $username) {
             $result .= '<li>' . static::escapeData($username) . '</li>';
         }
@@ -5068,7 +5116,7 @@ class SetupFirstUserModule implements UserModuleInterface
                 'msg' => 'Username or password does not meet the requirements'
             ];
 
-        $cls = SettingsModule::$AUTH_CLS;
+        $cls = UserSettingsGroup::getAuthenticationClass();
         $result = $cls::addUser($args, $username, $password);
         if ($result['status'] < 0)
             return ['status' => -2, 'msg' => $result['msg']];
@@ -5171,7 +5219,7 @@ class SetRemoveUserModule implements UserModuleInterface
         if (!$username)
             return ['status' => -1, 'msg' => 'Invalid username'];
 
-        $cls = SettingsModule::$AUTH_CLS;
+        $cls = UserSettingsGroup::getAuthenticationClass();
         if ($cls::currentUser($args) === $username)
             return ['status' => -2, 'msg' => 'Unable to delete current user'];
 
@@ -5210,28 +5258,18 @@ class UserSettingsGroup extends GroupModule implements UserModuleInterface
     const MOD_UUID = '56861e1a-845b-4ac6-90a7-5e712ab946ac';
     const MOD_NAME = 'User settings';
     const MOD_PARENT = SettingsModule::MOD_UUID;
-}
 
-class SettingsModule extends PlainGroupModule implements UserModuleInterface
-{
-    const MOD_UUID = '6859a9c9-132d-447f-8b4f-4484064e877a';
-    const MOD_NAME = 'Settings';
-    const MOD_PARENT = null;
+    public static $AUTH_CLS = null;
 
-    public static $AUTH_CLS = CoreAuthenticationModule::class;
+    public static function getAuthenticationClass()/*: string*/
+    {
+        if (is_null(static::$AUTH_CLS))
+            throw new Exception('Authorization class is doesn\'t set');
 
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        return [
-            'status' => 0,
-            'path' => $args->pathCurrent(),
-        ];
+        return static::$AUTH_CLS;
     }
 }
 
-ModIndex::addModule(SettingsModule::class, true);
 ModIndex::addModule(UserSettingsGroup::class);
 ModIndex::addModule(SetListUserModule::class);
 ModIndex::addModule(SetAddUserModule::class);
@@ -5608,6 +5646,8 @@ ModIndex::addParent(
     TreeDeleteDirectoryModule::class,
     FormProtectModule::MOD_UUID
 );
+
+UserSettingsGroup::$AUTH_CLS = CoreAuthenticationModule::class;
 /**&
 @module_content
   uuid: b0461c65-cf71-4210-a462-0bedb4aee19e

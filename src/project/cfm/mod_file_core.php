@@ -3,7 +3,7 @@
 /**&
   @module_content
     uuid: 2dd9d09b-60c9-4a4c-bdec-c11aeeb88348
-    name: Filesystem core
+    name: Filesystem Core
     author: trashlogic
     license: AGPL-3.0-only
     verm: 1

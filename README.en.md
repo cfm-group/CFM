@@ -6,7 +6,7 @@ Advanced file manager that fits in single PHP file.
 
 [Ru](README.md) | [En](README.en.md)
 
-[GitFlick](https://gitflic.ru/project/consensus/cfm) | [GitHub](https://github.com/cfm-group/CFM)
+[GitFlic](https://gitflic.ru/project/consensus/cfm) | [GitHub](https://github.com/cfm-group/CFM)
 
 # Functionality
  - **Basic Operations** - Upload/move/delete files, create folders, etc.

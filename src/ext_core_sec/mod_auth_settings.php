@@ -2,14 +2,13 @@
 
 /**&
   @module_content
-    uuid: 3ffb56ac-4362-4bd1-bbc8-99a47c88a8c3
-    name: CFM settings
+    uuid: a414c192-5364-47d2-a94f-de6db9a90a7e
+    name: Core Authentication Settings
     author: trashlogic
     license: AGPL-3.0-only
     verm: 1
     required: true
 &*/
-
 class SetListUserModule implements UserModuleInterface
 {
     use FormTools;
@@ -28,7 +27,7 @@ class SetListUserModule implements UserModuleInterface
     public static function form(ArgsStore $args)/*: ?string*/
     {
         $result = '';
-        $cls = UserSettingsGroup::$AUTH_CLS;
+        $cls = UserSettingsGroup::getAuthenticationClass();
         foreach ($cls::listUsers($args) as $username) {
             $result .= '<li>' . static::escapeData($username) . '</li>';
         }
@@ -107,7 +106,7 @@ class SetupFirstUserModule implements UserModuleInterface
                 'msg' => 'Username or password does not meet the requirements'
             ];
 
-        $cls = UserSettingsGroup::$AUTH_CLS;
+        $cls = UserSettingsGroup::getAuthenticationClass();
         $result = $cls::addUser($args, $username, $password);
         if ($result['status'] < 0)
             return ['status' => -2, 'msg' => $result['msg']];
@@ -210,7 +209,7 @@ class SetRemoveUserModule implements UserModuleInterface
         if (!$username)
             return ['status' => -1, 'msg' => 'Invalid username'];
 
-        $cls = UserSettingsGroup::$AUTH_CLS;
+        $cls = UserSettingsGroup::getAuthenticationClass();
         if ($cls::currentUser($args) === $username)
             return ['status' => -2, 'msg' => 'Unable to delete current user'];
 
@@ -250,27 +249,17 @@ class UserSettingsGroup extends GroupModule implements UserModuleInterface
     const MOD_NAME = 'User settings';
     const MOD_PARENT = SettingsModule::MOD_UUID;
 
-    public static $AUTH_CLS = CoreAuthenticationModule::class;
-}
+    public static $AUTH_CLS = null;
 
-class SettingsModule extends PlainGroupModule implements UserModuleInterface
-{
-    const MOD_UUID = '6859a9c9-132d-447f-8b4f-4484064e877a';
-    const MOD_NAME = 'Settings';
-    const MOD_PARENT = null;
+    public static function getAuthenticationClass()/*: string*/
+    {
+        if (is_null(static::$AUTH_CLS))
+            throw new Exception('Authorization class is doesn\'t set');
 
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        return [
-            'status' => 0,
-            'path' => $args->pathCurrent(),
-        ];
+        return static::$AUTH_CLS;
     }
 }
 
-ModIndex::addModule(SettingsModule::class, true);
 ModIndex::addModule(UserSettingsGroup::class);
 ModIndex::addModule(SetListUserModule::class);
 ModIndex::addModule(SetAddUserModule::class);
