@@ -118,8 +118,7 @@ class SetupFirstUserModule implements UserModuleInterface
     {
         return
             static::fieldGet($args, 'new_username')
-            .static::fieldGet($args, 'new_password')
-            . static::submitGet('Create');
+            .static::fieldGet($args, 'new_password');
     }
 
     public static function display(
@@ -152,6 +151,13 @@ class SetAddUserModule extends SetupFirstUserModule implements UserModuleInterfa
             return ['status' => -3, 'msg' => 'Unable to add new user'];
 
         return ['status' => 0];
+    }
+
+    public static function form(ArgsStore $args)/*: ?string*/
+    {
+        return
+            parent::form($args)
+            . static::submitGet('Create');
     }
 
     public static function display(
