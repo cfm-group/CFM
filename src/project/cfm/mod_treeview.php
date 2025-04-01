@@ -298,8 +298,8 @@ class TreeFileUploadModule implements
         } else if (!is_writable($path))
             return ['status' => -7, 'msg' => 'Target directory isn\'t writable'];
 
-        if (!touch($target))
-            return ['status' => -8, 'msg' => 'Unable to create file'];
+        // if (!touch($target))
+        //     return ['status' => -8, 'msg' => 'Unable to create file'];
 
         $append = static::valueGet($args, 'upload_append');
         if (!$append) {

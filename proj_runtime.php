@@ -10,9 +10,9 @@
   required: 1
 &*/
 
-require('src/core/mod_microcore.php');
-require('src/core/mod_infuser.php');
-require('src/core/mod_rt_config.php');
+require('src/ext_core/mod_microcore.php');
+require('src/ext_core/mod_infuser.php');
+require('src/ext_core/mod_rt_config.php');
 
 /**&
 @runtime_config

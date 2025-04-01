@@ -44,6 +44,17 @@ class SetupModule extends PlainGroupModule implements
     const MOD_NAME = 'Setup';
     const MOD_PARENT = null;
 
+    public static $FORM_FIELDS = [
+        'setup_perform' => [
+            't_int',
+            'c_not_empty' => [],
+            'o_field_schema' => [
+                'placeholder' => 'sqlite:///var/...',
+                'label' => ['DSN (Host)', 'new_line'],
+            ],
+        ],
+    ];
+
     public static function invokeMw(ArgsStore $args, array $curr_args)/*: bool*/
     {
         if (!$args->cfgVGet(SetupGroup::class, 'setup_complete')) {
@@ -58,6 +69,9 @@ class SetupModule extends PlainGroupModule implements
         ArgsStore $args,
         array $prnt_args = []
     )/*: array*/ {
+        if (!static::valueGet($args, 'setup_perform'))
+            return ['status' => 1];
+
         if ($args->cfgVGet(SetupGroup::class, 'setup_complete'))
             return ['status' => -1, 'msg' => 'Already setted up'];
 
@@ -70,7 +84,9 @@ class SetupModule extends PlainGroupModule implements
 
         $args->cfgVSet(SetupGroup::class, 'setup_complete', true, true);
 
-        $result = $args->cfgIGet()->dumpToPart($args->pathCurrent());
+        $result = $args->cfgIGet()->dumpToPart(
+            $args->pathCurrent()
+        );
         if ($result['status'] < 0)
             return ['status' => -3, 'msg' => 'Unable to complete setup'];
 
@@ -79,7 +95,11 @@ class SetupModule extends PlainGroupModule implements
 
     public static function form(ArgsStore $args)/*: ?string*/
     {
-        return SetupGroup::form($args);
+        return
+            SetupGroup::form($args)
+            . '<span class="stack">'
+                . static::buttonGet('setup_perform', 1, 'Finish setup')
+            . '</span>';
     }
 
     public static function display(

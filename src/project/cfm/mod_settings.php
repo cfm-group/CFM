@@ -28,7 +28,7 @@ class SetListUserModule implements UserModuleInterface
     public static function form(ArgsStore $args)/*: ?string*/
     {
         $result = '';
-        $cls = SettingsModule::$AUTH_CLS;
+        $cls = UserSettingsGroup::$AUTH_CLS;
         foreach ($cls::listUsers($args) as $username) {
             $result .= '<li>' . static::escapeData($username) . '</li>';
         }
@@ -107,7 +107,7 @@ class SetupFirstUserModule implements UserModuleInterface
                 'msg' => 'Username or password does not meet the requirements'
             ];
 
-        $cls = SettingsModule::$AUTH_CLS;
+        $cls = UserSettingsGroup::$AUTH_CLS;
         $result = $cls::addUser($args, $username, $password);
         if ($result['status'] < 0)
             return ['status' => -2, 'msg' => $result['msg']];
@@ -210,7 +210,7 @@ class SetRemoveUserModule implements UserModuleInterface
         if (!$username)
             return ['status' => -1, 'msg' => 'Invalid username'];
 
-        $cls = SettingsModule::$AUTH_CLS;
+        $cls = UserSettingsGroup::$AUTH_CLS;
         if ($cls::currentUser($args) === $username)
             return ['status' => -2, 'msg' => 'Unable to delete current user'];
 
@@ -249,6 +249,8 @@ class UserSettingsGroup extends GroupModule implements UserModuleInterface
     const MOD_UUID = '56861e1a-845b-4ac6-90a7-5e712ab946ac';
     const MOD_NAME = 'User settings';
     const MOD_PARENT = SettingsModule::MOD_UUID;
+
+    public static $AUTH_CLS = CoreAuthenticationModule::class;
 }
 
 class SettingsModule extends PlainGroupModule implements UserModuleInterface
@@ -256,8 +258,6 @@ class SettingsModule extends PlainGroupModule implements UserModuleInterface
     const MOD_UUID = '6859a9c9-132d-447f-8b4f-4484064e877a';
     const MOD_NAME = 'Settings';
     const MOD_PARENT = null;
-
-    public static $AUTH_CLS = CoreAuthenticationModule::class;
 
     public static function process(
         ArgsStore $args,
