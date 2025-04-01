@@ -910,14 +910,14 @@ if (extension_loaded('posix')) {
     ];
 }
 
-ModIndex::AddModule(TreeViewModule::class, true);
+ModIndex::addModule(TreeViewModule::class);
 
-ModIndex::AddModule(TreeDirOpsGroup::class);
-// ModIndex::AddModule(TreeMassOpsGroup::class);
-ModIndex::AddModule(TreeUnsafeOpsGroup::class);
-ModIndex::AddModule(TreeFileUploadModule::class);
-ModIndex::AddModule(TreeCreateDirectoryModule::class);
-ModIndex::AddModule(TreeDeleteDirectoryModule::class);
-ModIndex::AddModule(TreeCreateFileModule::class);
+ModIndex::addModule(TreeDirOpsGroup::class);
+// ModIndex::addModule(TreeMassOpsGroup::class);
+ModIndex::addModule(TreeUnsafeOpsGroup::class);
+ModIndex::addModule(TreeFileUploadModule::class);
+ModIndex::addModule(TreeCreateDirectoryModule::class);
+ModIndex::addModule(TreeDeleteDirectoryModule::class);
+ModIndex::addModule(TreeCreateFileModule::class);
 
 ModIndex::addParent(TreeDeleteDirectoryModule::class, FormProtectModule::MOD_UUID);

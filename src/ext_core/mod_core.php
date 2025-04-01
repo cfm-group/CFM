@@ -1165,7 +1165,6 @@ class ModIndex
 
     public static function addModule(
         /*string*/ $cls,
-        /*bool*/ $tlm = false,
         array $parents = []
     )/*: int*/ {
         if (!is_subclass_of($cls, BasicModuleInterface::class, true))
@@ -1175,13 +1174,23 @@ class ModIndex
             $status = static::addParent($cls, $cls::MOD_PARENT);
             if ($status < 0)
                 return $status;
-        } else if ($tlm) {
-            static::$TLM[$cls::MOD_UUID] = $cls;
         }
         static::$TI[$cls::MOD_UUID] = $cls;
 
         foreach ($parents as $uuid)
             static::addParent($cls, $uuid);
+
+        return 0;
+    }
+
+    public static function makeTLM(/*string*/ $cls)/*: int*/
+    {
+        if (!is_subclass_of($cls, BasicModuleInterface::class, true))
+            return -1;
+        if (!array_key_exists($cls::MOD_UUID, static::$TI))
+            return -2;
+
+        static::$TLM[$cls::MOD_UUID] = $cls;
 
         return 0;
     }

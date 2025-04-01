@@ -1506,7 +1506,6 @@ class ModIndex
 
     public static function addModule(
         /*string*/ $cls,
-        /*bool*/ $tlm = false,
         array $parents = []
     )/*: int*/ {
         if (!is_subclass_of($cls, BasicModuleInterface::class, true))
@@ -1516,13 +1515,23 @@ class ModIndex
             $status = static::addParent($cls, $cls::MOD_PARENT);
             if ($status < 0)
                 return $status;
-        } else if ($tlm) {
-            static::$TLM[$cls::MOD_UUID] = $cls;
         }
         static::$TI[$cls::MOD_UUID] = $cls;
 
         foreach ($parents as $uuid)
             static::addParent($cls, $uuid);
+
+        return 0;
+    }
+
+    public static function makeTLM(/*string*/ $cls)/*: int*/
+    {
+        if (!is_subclass_of($cls, BasicModuleInterface::class, true))
+            return -1;
+        if (!array_key_exists($cls::MOD_UUID, static::$TI))
+            return -2;
+
+        static::$TLM[$cls::MOD_UUID] = $cls;
 
         return 0;
     }
@@ -3333,6 +3342,8 @@ class FileViewModule extends PlainGroupModule implements UserModuleInterface
 ModIndex::addModule(FileViewModule::class);
 ModIndex::addModule(FileDownloadModule::class);
 ModIndex::addModule(FileViewDeleteModule::class);
+
+ModIndex::addParent(FileViewDeleteModule::class, FormProtectModule::MOD_UUID);
 /**&
 @module_content
   uuid: f5adf74b-8cf6-410e-9573-1e97c6524d43
@@ -4243,15 +4254,17 @@ if (extension_loaded('posix')) {
     ];
 }
 
-ModIndex::AddModule(TreeViewModule::class, true);
+ModIndex::addModule(TreeViewModule::class);
 
-ModIndex::AddModule(TreeDirOpsGroup::class);
-// ModIndex::AddModule(TreeMassOpsGroup::class);
-ModIndex::AddModule(TreeUnsafeOpsGroup::class);
-ModIndex::AddModule(TreeFileUploadModule::class);
-ModIndex::AddModule(TreeCreateDirectoryModule::class);
-ModIndex::AddModule(TreeDeleteDirectoryModule::class);
-ModIndex::AddModule(TreeCreateFileModule::class);
+ModIndex::addModule(TreeDirOpsGroup::class);
+// ModIndex::addModule(TreeMassOpsGroup::class);
+ModIndex::addModule(TreeUnsafeOpsGroup::class);
+ModIndex::addModule(TreeFileUploadModule::class);
+ModIndex::addModule(TreeCreateDirectoryModule::class);
+ModIndex::addModule(TreeDeleteDirectoryModule::class);
+ModIndex::addModule(TreeCreateFileModule::class);
+
+ModIndex::addParent(TreeDeleteDirectoryModule::class, FormProtectModule::MOD_UUID);
 /**&
 @module_content
   uuid: cbb1d654-396f-49fc-b575-6ca687b7899c
@@ -4447,7 +4460,7 @@ class SettingsModule extends PlainGroupModule implements UserModuleInterface
     }
 }
 
-ModIndex::addModule(SettingsModule::class, true);
+ModIndex::addModule(SettingsModule::class);
 /**&
 @module_content
   uuid: 3bb19b4f-c49b-46cf-9fb0-09e3bc68c73f
@@ -5108,8 +5121,6 @@ class SetupFirstUserModule implements UserModuleInterface
     )/*: array*/ {
         $username = static::valueGet($args, 'new_username');
         $password = static::valueGet($args, 'new_password');
-        if (!$username && !$password)
-            return ['status' => 1];
         if (!$username || !$password)
             return [
                 'status' => -1,
@@ -5177,8 +5188,6 @@ class SetAddUserModule extends SetupFirstUserModule implements UserModuleInterfa
     )/*: ?string*/ {
         if ($curr_args['status'] < 0)
             return static::errorGet($curr_args);
-        if ($curr_args['status'] === 1)
-            return;
 
         return 'New user successfully created';
     }
@@ -5281,6 +5290,9 @@ ModIndex::addModule(SetListUserModule::class);
 ModIndex::addModule(SetAddUserModule::class);
 ModIndex::addModule(SetRemoveUserModule::class);
 ModIndex::addModule(SetupFirstUserModule::class);
+
+ModIndex::addParent(SetAddUserModule::class, FormProtectModule::MOD_UUID);
+ModIndex::addParent(SetRemoveUserModule::class, FormProtectModule::MOD_UUID);
 /**&
 @module_content
   uuid: c271e92a-e358-4580-bd26-828f36b83a4d
@@ -5639,19 +5651,10 @@ MwChains::$CHAINS = [
 ];
 
 ModIndex::addParent(CoreLogoutModule::class, CFMMain::MOD_UUID);
-ModIndex::addParent(
-    FormProtectModule::class,
-    CFMMain::MOD_UUID
-);
+ModIndex::addParent(FormProtectModule::class, CFMMain::MOD_UUID);
 
-ModIndex::addParent(
-    FileViewDeleteModule::class,
-    FormProtectModule::MOD_UUID
-);
-ModIndex::addParent(
-    TreeDeleteDirectoryModule::class,
-    FormProtectModule::MOD_UUID
-);
+ModIndex::makeTLM(TreeViewModule::class);
+ModIndex::makeTLM(SettingsModule::class);
 
 UserSettingsGroup::$AUTH_CLS = CoreAuthenticationModule::class;
 /**&

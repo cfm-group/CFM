@@ -73,4 +73,7 @@ MwChains::$CHAINS = [
 ModIndex::addParent(CoreLogoutModule::class, CFMMain::MOD_UUID);
 ModIndex::addParent(FormProtectModule::class, CFMMain::MOD_UUID);
 
+ModIndex::makeTLM(TreeViewModule::class);
+ModIndex::makeTLM(SettingsModule::class);
+
 UserSettingsGroup::$AUTH_CLS = CoreAuthenticationModule::class;

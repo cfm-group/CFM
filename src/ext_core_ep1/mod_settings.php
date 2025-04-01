@@ -26,4 +26,4 @@ class SettingsModule extends PlainGroupModule implements UserModuleInterface
     }
 }
 
-ModIndex::addModule(SettingsModule::class, true);
+ModIndex::addModule(SettingsModule::class);
