@@ -84,9 +84,7 @@ class SetupModule extends PlainGroupModule implements
 
         $args->cfgVSet(SetupGroup::class, 'setup_complete', true, true);
 
-        $result = $args->cfgIGet()->dumpToPart(
-            $args->pathCurrent()
-        );
+        $result = $args->cfgSave();
         if ($result['status'] < 0)
             return ['status' => -3, 'msg' => 'Unable to complete setup'];
 

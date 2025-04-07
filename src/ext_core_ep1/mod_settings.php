@@ -15,15 +15,15 @@ class SettingsModule extends PlainGroupModule implements UserModuleInterface
     const MOD_NAME = 'Settings';
     const MOD_PARENT = null;
 
-    public static function process(
-        ArgsStore $args,
-        array $prnt_args = []
-    )/*: array*/ {
-        return [
-            'status' => 0,
-            'path' => $args->pathCurrent(),
-        ];
-    }
+    // public static function process(
+    //     ArgsStore $args,
+    //     array $prnt_args = []
+    // )/*: array*/ {
+    //     return [
+    //         'status' => 0,
+    //         'path' => $args->cfgPath(),
+    //     ];
+    // }
 }
 
 ModIndex::addModule(SettingsModule::class);

@@ -28,19 +28,9 @@ class RuntimeConfig implements MiddlewareInterface
     {
         $args->callAdd('cfgVGet', [$this, 'get']);
         $args->callAdd('cfgVSet', [$this, 'set']);
+        $args->callAdd('cfgSave', [$this, 'save']);
         $args->callAdd('cfgDump', [$this, 'dump']);
-        $args->callAdd(
-            'cfgIGet',
-            function () {
-                return $this;
-            }
-        );
-        $args->callAdd(
-            'pathCurrent',
-            function () {
-                return $_SERVER['SCRIPT_FILENAME'];
-            }
-        );
+        $args->callAdd('cfgPath', [$this, 'path']);
         $this->args = $args;
 
         if (is_null($config))
@@ -139,6 +129,11 @@ class RuntimeConfig implements MiddlewareInterface
         return $this->runtimeConfig;
     }
 
+    public function path()/*: string*/
+    {
+        return $_SERVER['SCRIPT_FILENAME'];
+    }
+
     public function dumpToPart(/*string*/ $file)/*: array*/
     {
         if (!is_writable($file))
@@ -165,6 +160,13 @@ class RuntimeConfig implements MiddlewareInterface
 
         return ['status' => 0];
     }
+
+    public function save()/*: array*/
+    {
+        return $this->dumpToPart(
+            $this->path()
+        );
+    }
 }
 
 class RuntimeConfigFuser implements BasicFuserInterface
@@ -181,7 +183,7 @@ class RuntimeConfigFuser implements BasicFuserInterface
 
     public function isSustainable()/*: bool*/
     {
-        return $this->args->isCallAvailable('cfgIGet');
+        return $this->args->isCallAvailable('cfgDump');
     }
 
     public function isRequired()/*: bool*/

@@ -144,7 +144,7 @@ class SetAddUserModule extends SetupFirstUserModule implements UserModuleInterfa
         if ($result['status'] !== 0)
             return $result;
 
-        $result = $args->cfgIGet()->dumpToPart($prnt_args['path']);
+        $result = $args->cfgSave();
         if ($result['status'] < 0)
             return ['status' => -3, 'msg' => 'Unable to add new user'];
 
@@ -219,7 +219,7 @@ class SetRemoveUserModule implements UserModuleInterface
         if ($result['status'] < 0)
             return ['status' => -3, 'msg' => $result['msg']];
 
-        $result = $args->cfgIGet()->dumpToPart($prnt_args['path']);
+        $result = $args->cfgSave();
         if ($result['status'] < 0)
             return ['status' => -3, 'msg' => 'Unable to add new user'];
 

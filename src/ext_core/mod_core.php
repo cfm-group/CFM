@@ -1645,7 +1645,6 @@ abstract class PlainGroupModule
     extends GroupModule
     implements UserModuleInterface
 {
-
     public static function form(ArgsStore $args)/*: ?string*/
     {
         $result .= '';
